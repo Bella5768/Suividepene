@@ -1,0 +1,60 @@
+.commander-public {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f0f4f8 0%, #ffffff 100%);
+}
+
+.public-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(54, 96, 146, 0.3);
+}
+
+.public-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.panier-card {
+  position: sticky;
+  top: 2rem;
+  background: var(--card-bg);
+  border: 3px solid var(--primary-color);
+  box-shadow: 0 8px 24px rgba(54, 96, 146, 0.3);
+  z-index: 100;
+}
+
+.panier-items {
+  margin-bottom: 1rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.panier-item {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1rem;
+  background: var(--bg-color);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.panier-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.panier-total {
+  padding: 1.5rem 0;
+  border-top: 2px solid var(--primary-color);
+  font-size: 1.3rem;
+  color: var(--primary-color);
+}
+

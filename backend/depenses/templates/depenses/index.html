@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Dépenses - CSI</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'depenses/css/admin-style.css' %}">
+</head>
+<body>
+    <div id="root">
+        <div style="padding: 2rem; text-align: center; font-family: Arial, sans-serif;">
+            <p>Chargement de l'application...</p>
+        </div>
+    </div>
+    <script>
+        window.DJANGO_USER = {
+            username: '{{ user.username }}',
+            isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
+        };
+        window.DJANGO_CSRF_TOKEN = '{{ csrf_token }}';
+        window.API_BASE_URL = '/api';
+        console.log('Django config loaded:', window.DJANGO_USER, window.API_BASE_URL);
+    </script>
+    {% if debug %}
+    <!-- En développement: charger depuis le serveur Vite -->
+    <script>
+        console.log('Loading Vite scripts...');
+        const root = document.getElementById('root');
+        
+        // Vérifier après 10 secondes si React s'est monté
+        setTimeout(() => {
+            if (root && root.children.length === 1 && root.children[0].textContent.includes('Chargement')) {
+                root.innerHTML = `
+                    <div style="padding: 2rem; text-align: center; font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto;">
+                        <h2 style="color: #d32f2f;">⚠️ Erreur de chargement</h2>
+                        <p>Les scripts React ne se sont pas chargés correctement.</p>
+                        <p style="color: #666; margin-top: 1rem;">Vérifiez :</p>
+                        <ul style="text-align: left; color: #666; margin: 1rem 0;">
+                            <li>Que le serveur Vite est démarré sur le port 3001</li>
+                            <li>La console du navigateur (F12) pour voir les erreurs</li>
+                            <li>Essayez d'accéder directement à <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></li>
+                        </ul>
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">Si Vite fonctionne directement, le problème vient du chargement depuis Django.</p>
+                    </div>
+                `;
+            }
+        }, 10000);
+    </script>
+    <script>
+        // Essayer plusieurs ports Vite possibles dans l'ordre
+        const vitePorts = [3001, 3002, 3003, 5173];
+        let currentPortIndex = 0;
+        
+        // Fonction pour charger les scripts Vite
+        function loadViteScripts(port) {
+            console.log(`Tentative de chargement depuis le port ${port}...`);
+            
+            // Supprimer les anciens scripts s'ils existent
+            const oldScripts = document.querySelectorAll('script[data-vite-port]');
+            oldScripts.forEach(s => s.remove());
+            
+            const clientScript = document.createElement('script');
+            clientScript.type = 'module';
+            clientScript.src = `http://localhost:${port}/@vite/client`;
+            clientScript.setAttribute('data-vite-port', port);
+            clientScript.onerror = () => {
+                console.error(`Port ${port} non disponible, essai du port suivant...`);
+                // Essayer le port suivant
+                currentPortIndex++;
+                if (currentPortIndex < vitePorts.length) {
+                    setTimeout(() => loadViteScripts(vitePorts[currentPortIndex]), 100);
+                } else {
+                    console.error('Aucun port Vite disponible');
+                    const root = document.getElementById('root');
+                    if (root && root.children.length === 1 && root.children[0].textContent.includes('Chargement')) {
+                        root.innerHTML = `
+                            <div style="padding: 2rem; text-align: center; font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto;">
+                                <h2 style="color: #d32f2f;">⚠️ Serveur Vite introuvable</h2>
+                                <p>Le serveur Vite n'est pas accessible sur les ports testés (3001, 3002, 3003, 5173).</p>
+                                <p style="color: #666; margin-top: 1rem;">Vérifiez que le serveur Vite est démarré.</p>
+                            </div>
+                        `;
+                    }
+                }
+            };
+            clientScript.onload = () => {
+                console.log(`✓ Client Vite chargé depuis le port ${port}`);
+            };
+            document.head.appendChild(clientScript);
+            
+            const mainScript = document.createElement('script');
+            mainScript.type = 'module';
+            mainScript.src = `http://localhost:${port}/src/main.jsx`;
+            mainScript.setAttribute('data-vite-port', port);
+            mainScript.onerror = () => {
+                console.error(`Erreur lors du chargement du script principal depuis le port ${port}`);
+            };
+            document.head.appendChild(mainScript);
+        }
+        
+        // Commencer par le premier port
+        loadViteScripts(vitePorts[0]);
+    </script>
+    {% else %}
+    <!-- En production: charger les fichiers buildés -->
+    {% load static %}
+    <script type="module" src="{% static 'depenses/main.js' %}"></script>
+    {% endif %}
+</body>
+</html>
+
