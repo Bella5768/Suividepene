@@ -14,10 +14,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-production')
+SECRET_KEY = config('SECRET_KEY', default=None)
+if not SECRET_KEY:
+    import secrets
+    SECRET_KEY = secrets.token_urlsafe(50)
+    import warnings
+    warnings.warn(
+        "SECRET_KEY not configured in environment. Using randomly generated key. "
+        "This is INSECURE for production. Set SECRET_KEY environment variable.",
+        RuntimeWarning
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
 
@@ -35,12 +44,14 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
+    'whitenoise.runserver_nostatic',
     'depenses',
     'audit',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -75,13 +86,11 @@ WSGI_APPLICATION = 'suivi_depense.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# Configuration PyMySQL pour Windows
-import pymysql
-pymysql.install_as_MySQLdb()
-
-USE_SQLITE = config('USE_SQLITE', default=False, cast=bool)
+# Database Configuration
+USE_SQLITE = config('USE_SQLITE', default=True, cast=bool)
 
 if USE_SQLITE:
+    # SQLite for development (default)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -89,6 +98,10 @@ if USE_SQLITE:
         }
     }
 else:
+    # MySQL for production
+    import pymysql
+    pymysql.install_as_MySQLdb()
+    
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -162,6 +175,15 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ),
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+    },
+    'EXCEPTION_HANDLER': 'depenses.exceptions.custom_exception_handler',
 }
 
 # JWT Settings
@@ -176,12 +198,37 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://localhost:3001,http://localhost:5173',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:3000,http://localhost:3001,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173',
+        cast=lambda v: [s.strip() for s in v.split(',')]
+    )
+else:
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS',
+        default='',
+        cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
+    )
+    if not CORS_ALLOWED_ORIGINS:
+        import warnings
+        warnings.warn(
+            "CORS_ALLOWED_ORIGINS not configured for production. Set it to your production domain.",
+            RuntimeWarning
+        )
+
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # Security Settings
 if not DEBUG:
@@ -191,19 +238,32 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # File Upload
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
 # Email Configuration - Outlook/Office 365 (CSIG)
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.office365.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='support@csig.edu.gn')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='gnnthnprwdlklnfd')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='support@csig.edu.gn')
 SERVER_EMAIL = config('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
+
+# Validate email configuration in production
+if not DEBUG and EMAIL_BACKEND.endswith('smtp.EmailBackend'):
+    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+        import warnings
+        warnings.warn(
+            "Email credentials not configured. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD environment variables.",
+            RuntimeWarning
+        )
 

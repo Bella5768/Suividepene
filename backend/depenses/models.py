@@ -69,6 +69,11 @@ class Prevision(models.Model):
         verbose_name_plural = "Prévisions"
         unique_together = ['mois', 'categorie', 'sous_categorie']
         ordering = ['-mois', 'categorie', 'sous_categorie']
+        indexes = [
+            models.Index(fields=['mois']),
+            models.Index(fields=['categorie']),
+            models.Index(fields=['mois', 'categorie']),
+        ]
 
     def __str__(self):
         mois_str = self.mois.strftime('%Y-%m')
@@ -78,7 +83,9 @@ class Prevision(models.Model):
     @property
     def montant_impute(self):
         """Montant total déjà imputé sur cette prévision"""
-        return sum(imp.montant_impute for imp in self.imputations.all())
+        from django.db.models import Sum
+        total = self.imputations.aggregate(total=Sum('montant_impute'))['total']
+        return total if total is not None else Decimal('0.00')
 
     @property
     def solde_restant(self):
@@ -493,6 +500,12 @@ class Commande(models.Model):
         verbose_name_plural = "Commandes"
         unique_together = ['utilisateur', 'date_commande']
         ordering = ['-date_commande', '-created_at']
+        indexes = [
+            models.Index(fields=['utilisateur']),
+            models.Index(fields=['date_commande']),
+            models.Index(fields=['utilisateur', 'date_commande']),
+            models.Index(fields=['etat']),
+        ]
     
     def __str__(self):
         return f"Commande {self.utilisateur.username} - {self.date_commande} ({self.etat})"
@@ -565,6 +578,10 @@ class CommandeLigne(models.Model):
         verbose_name = "Ligne de Commande"
         verbose_name_plural = "Lignes de Commande"
         ordering = ['commande', 'menu_plat__ordre']
+        indexes = [
+            models.Index(fields=['commande']),
+            models.Index(fields=['menu_plat']),
+        ]
     
     def __str__(self):
         return f"{self.commande} - {self.menu_plat.plat.nom} x{self.quantite}"
