@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import axios from 'axios'
@@ -18,6 +18,19 @@ const CommanderPublic = () => {
     email_employe: '',
   })
   const queryClient = useQueryClient()
+
+  // Vérifier si les commandes sont fermées (après 11h30 heure de Guinée Conakry)
+  const isCommandeClosed = useMemo(() => {
+    // Créer une date avec le fuseau horaire de Guinée Conakry (GMT+0)
+    const now = new Date()
+    // Convertir l'heure locale en heure GMT+0 (Guinée Conakry)
+    const guineaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Conakry' }))
+    const heures = guineaTime.getHours()
+    const minutes = guineaTime.getMinutes()
+    
+    // Fermer après 11h30
+    return heures > 11 || (heures === 11 && minutes >= 30)
+  }, [])
 
   const { data: menu, isLoading, error } = useQuery(
     ['menu-public', tokenFinal],
@@ -79,6 +92,13 @@ const CommanderPublic = () => {
 
   const handleCommander = (e) => {
     e.preventDefault()
+    
+    // Vérifier si les commandes sont fermées
+    if (isCommandeClosed) {
+      toast.error('⏰ Les commandes sont fermées après 11h30 (heure de Guinée Conakry)')
+      return
+    }
+
     if (panier.length === 0) {
       toast.error('Votre panier est vide')
       return
@@ -156,6 +176,20 @@ const CommanderPublic = () => {
           <p style={{ color: 'rgba(255,255,255,0.9)', marginTop: '1rem', fontSize: '1.1rem' }}>
             Remplissez le formulaire ci-dessous pour commander votre repas
           </p>
+          {isCommandeClosed && (
+            <div style={{ 
+              marginTop: '1.5rem', 
+              padding: '1rem', 
+              backgroundColor: 'rgba(220, 53, 69, 0.9)', 
+              border: '2px solid rgba(255,255,255,0.5)',
+              borderRadius: '8px',
+              color: 'white',
+              fontSize: '1.1rem',
+              fontWeight: 'bold'
+            }}>
+              ⏰ Les commandes sont fermées après 11h30 (heure de Guinée Conakry)
+            </div>
+          )}
         </div>
       </div>
 
@@ -173,7 +207,8 @@ const CommanderPublic = () => {
               onChange={(e) => setFormData({ ...formData, nom_employe: e.target.value })}
               required
               placeholder="Ex: Oumar Diallo"
-              style={{ fontSize: '1rem', padding: '0.875rem' }}
+              disabled={isCommandeClosed}
+              style={{ fontSize: '1rem', padding: '0.875rem', opacity: isCommandeClosed ? 0.6 : 1 }}
             />
           </div>
           <div className="form-group">
@@ -186,7 +221,8 @@ const CommanderPublic = () => {
               value={formData.email_employe}
               onChange={(e) => setFormData({ ...formData, email_employe: e.target.value })}
               placeholder="votre.email@example.com"
-              style={{ fontSize: '1rem', padding: '0.875rem' }}
+              disabled={isCommandeClosed}
+              style={{ fontSize: '1rem', padding: '0.875rem', opacity: isCommandeClosed ? 0.6 : 1 }}
             />
           </div>
         </div>
@@ -341,7 +377,7 @@ const CommanderPublic = () => {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={creerCommandeMutation.isLoading}
+              disabled={creerCommandeMutation.isLoading || isCommandeClosed}
               style={{ 
                 width: '100%', 
                 marginTop: '1.5rem', 
@@ -349,10 +385,13 @@ const CommanderPublic = () => {
                 fontSize: '1.2rem',
                 fontWeight: 'bold',
                 textTransform: 'uppercase',
-                letterSpacing: '1px'
+                letterSpacing: '1px',
+                opacity: isCommandeClosed ? 0.5 : 1,
+                cursor: isCommandeClosed ? 'not-allowed' : 'pointer'
               }}
+              title={isCommandeClosed ? '⏰ Les commandes sont fermées après 11h30' : ''}
             >
-              {creerCommandeMutation.isLoading ? '⏳ Envoi en cours...' : '✅ Valider ma Commande'}
+              {isCommandeClosed ? '⏰ Commandes fermées après 11h30' : (creerCommandeMutation.isLoading ? '⏳ Envoi en cours...' : '✅ Valider ma Commande')}
             </button>
           </div>
         ) : (

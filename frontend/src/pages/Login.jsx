@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import logocsig from '../assets/logocsig.png'
 import './Login.css'
 
 const Login = () => {
@@ -26,6 +27,18 @@ const Login = () => {
   return (
     <div className="login-container">
       <div className="login-card">
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <img 
+            src={logocsig} 
+            alt="Logo Cité des Sciences et de l'Innovation" 
+            style={{ 
+              maxWidth: '120px', 
+              height: 'auto',
+              marginBottom: '1rem',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+            }} 
+          />
+        </div>
         <h1>Gestion des Dépenses</h1>
         <p className="login-subtitle">Cité des Sciences et de l'Innovation</p>
         <form onSubmit={handleSubmit}>
