@@ -68,10 +68,13 @@ frontend/build/
 frontend/.vite/
 frontend/dist/
 
-# Static files (générés)
-backend/depenses/static/
+# Static files (générés) - SAUF les fichiers du frontend vanilla
 backend/staticfiles/
 backend/media/
+# Ignorer les fichiers générés mais tracker les fichiers source du frontend vanilla
+!backend/depenses/static/depenses/css/
+!backend/depenses/static/depenses/js/
+!backend/depenses/static/depenses/assets/
 
 # Migrations (optionnel - décommenter si vous ne voulez pas les migrations)
 # backend/depenses/migrations/*.py
