@@ -113,3 +113,4 @@ Si vous voyez des erreurs, notez-les et consultez les solutions ci-dessus.
 
 Pour tester rapidement, validez une commande et regardez la console Django. Les messages vous indiqueront exactement ce qui se passe.
 
+

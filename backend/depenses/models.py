@@ -373,13 +373,37 @@ class FenetreCommande(models.Model):
         return f"{self.get_categorie_restau_display()} - Limite: {self.heure_limite}"
     
     @classmethod
-    def est_dans_fenetre(cls, categorie_restau, date_commande=None):
-        """Vérifie si on est dans la fenêtre de commande pour un créneau"""
+    def est_dans_fenetre(cls, categorie_restau, date_commande=None, est_public=False):
+        """Vérifie si on est dans la fenêtre de commande pour un créneau
+        
+        Args:
+            categorie_restau: Catégorie de restauration
+            date_commande: Date de la commande (par défaut: aujourd'hui)
+            est_public: Si True, applique la restriction 13h00 GMT pour les commandes publiques
+        """
         from django.utils import timezone
+        from datetime import time
         
         if date_commande is None:
             date_commande = timezone.now().date()
         
+        # Pour les commandes publiques, vérifier la limite de 13h00 GMT
+        if est_public:
+            # Heure limite pour les commandes publiques: 13h00 GMT
+            heure_limite_public = time(13, 0, 0)
+            heure_actuelle = timezone.now().time()
+            
+            # Si la date de commande est aujourd'hui
+            if date_commande == timezone.now().date():
+                return heure_actuelle <= heure_limite_public
+            # Si la date est dans le futur, on accepte
+            elif date_commande > timezone.now().date():
+                return True
+            # Si la date est dans le passé, on refuse
+            else:
+                return False
+        
+        # Pour les commandes authentifiées, pas de restriction horaire
         try:
             fenetre = cls.objects.get(categorie_restau=categorie_restau, actif=True)
             heure_actuelle = timezone.now().time()
@@ -587,9 +611,16 @@ class CommandeLigne(models.Model):
         return f"{self.commande} - {self.menu_plat.plat.nom} x{self.quantite}"
     
     @property
+    def prix_effectif(self):
+        """Calcule le prix effectif: si prix > 50000, utilise 30000, sinon utilise le prix réel"""
+        if self.prix_unitaire > 50000:
+            return Decimal('30000.00')
+        return self.prix_unitaire
+    
+    @property
     def montant_ligne(self):
-        """Calcule le montant de la ligne (quantité × prix unitaire)"""
-        return self.quantite * self.prix_unitaire
+        """Calcule le montant de la ligne (quantité × prix effectif)"""
+        return self.quantite * self.prix_effectif
 
 
 class Facture(models.Model):
@@ -632,13 +663,14 @@ class Facture(models.Model):
         self.total_subvention = commandes.aggregate(Sum('montant_subvention'))['montant_subvention__sum'] or Decimal('0.00')
         self.total_net = commandes.aggregate(Sum('montant_net'))['montant_net__sum'] or Decimal('0.00')
         
-        # Calculer le total des suppléments (plats > 30 000 GNF)
+        # Calculer le total des suppléments (différence entre prix réel et prix effectif pour plats > 50000)
         total_supplement = Decimal('0.00')
         for commande in commandes:
             for ligne in commande.lignes.all():
-                if ligne.prix_unitaire > 30000:
-                    supplement = ligne.prix_unitaire - 30000
-                    total_supplement += supplement * ligne.quantite
+                if ligne.prix_unitaire > 50000:
+                    # Supplément = (prix réel - prix effectif) × quantité
+                    supplement = (ligne.prix_unitaire - ligne.prix_effectif) * ligne.quantite
+                    total_supplement += supplement
         
         self.total_supplement = total_supplement
         self.save()

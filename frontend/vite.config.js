@@ -19,9 +19,19 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    middlewareMode: false,
+    fallback: {
+      index: '/index.html',
+    },
+  },
+  // Configuration pour Vercel
+  define: {
+    // Utiliser la variable d'environnement VITE_API_URL en production
+    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || ''),
   },
   build: {
-    outDir: '../backend/depenses/static/depenses',
+    // Pour Vercel, utiliser 'dist', pour Django utiliser '../backend/depenses/static/depenses'
+    outDir: process.env.VERCEL ? 'dist' : '../backend/depenses/static/depenses',
     emptyOutDir: true,
     minify: 'terser',
     sourcemap: false,

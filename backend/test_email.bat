@@ -10,3 +10,4 @@ python manage.py shell < test_email.py
 
 pause
 
+

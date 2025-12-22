@@ -70,3 +70,4 @@ En production, on build React et Django sert les fichiers statiques :
 - Tout est servi par Django sur le port 8000
 
 
+

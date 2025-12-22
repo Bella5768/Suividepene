@@ -239,12 +239,13 @@ class CommandeLigneSerializer(serializers.ModelSerializer):
     menu_plat_detail = MenuPlatSerializer(source='menu_plat', read_only=True)
     montant_ligne = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     plat_nom = serializers.CharField(source='menu_plat.plat.nom', read_only=True)
+    prix_effectif = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     
     class Meta:
         model = CommandeLigne
         fields = [
             'id', 'commande', 'menu_plat', 'menu_plat_detail', 'plat_nom',
-            'quantite', 'prix_unitaire', 'montant_ligne'
+            'quantite', 'prix_unitaire', 'prix_effectif', 'montant_ligne'
         ]
 
 

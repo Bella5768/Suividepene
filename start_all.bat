@@ -10,7 +10,7 @@ start "Backend Django" cmd /k "cd backend && venv\Scripts\activate.bat && python
 timeout /t 3 /nobreak >nul
 
 echo [2/2] Demarrage du Frontend React...
-start "Frontend React" cmd /k "cd frontend && ..\nodejs-portable\npm.cmd run dev"
+start "Frontend React" cmd /k "cd frontend && ..\nodejs-portable\node.exe ..\nodejs-portable\node_modules\npm\bin\npm-cli.js run dev"
 
 echo.
 echo ========================================
@@ -24,6 +24,7 @@ echo.
 echo Identifiants: admin / admin123
 echo.
 pause
+
 
 
 

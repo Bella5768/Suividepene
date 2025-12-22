@@ -39,3 +39,4 @@ Pour arrêter le serveur, fermez la fenêtre de terminal ou appuyez sur `Ctrl+C`
 Le serveur Django doit rester actif pendant que vous utilisez l'application. Ne fermez pas le terminal où il s'exécute.
 
 
+

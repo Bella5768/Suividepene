@@ -9,3 +9,4 @@ python manage.py shell < assign_validation_permission.py
 
 pause
 
+

@@ -63,3 +63,4 @@ cd frontend
 Les fichiers seront dans `backend/depenses/static/depenses/` et Django les servira automatiquement.
 
 
+

@@ -100,3 +100,4 @@ cd C:\wamp64\www\Suivi_depense\frontend
 4. Si vous voyez la page de connexion → Frontend OK ✅
 5. Connectez-vous avec `admin` / `admin123`
 
+

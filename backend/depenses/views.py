@@ -1307,26 +1307,34 @@ class CommandeViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Vous ne pouvez commander qu\'un seul plat (quantité = 1)'}, status=400)
         
         # Vérifier les fenêtres de commande pour chaque plat
+        # Les utilisateurs authentifiés (admins/staff) peuvent commander sans restriction
+        # Les utilisateurs publics sont limités à 13h00 GMT
         erreurs_fenetre = []
-        for ligne_data in lignes_data:
-            menu_plat_id = ligne_data['menu_plat_id']
-            try:
-                menu_plat = MenuPlat.objects.select_related('plat').get(pk=menu_plat_id)
-                categorie_restau = menu_plat.plat.categorie_restau
-                
-                if not FenetreCommande.est_dans_fenetre(categorie_restau, date_commande):
-                    fenetre = FenetreCommande.objects.filter(categorie_restau=categorie_restau, actif=True).first()
-                    if fenetre:
-                        erreurs_fenetre.append(
-                            f"Fenêtre de commande fermée pour {menu_plat.plat.nom} "
-                            f"({menu_plat.plat.get_categorie_restau_display()}). "
-                            f"Heure limite: {fenetre.heure_limite.strftime('%H:%M')}"
-                        )
-            except MenuPlat.DoesNotExist:
-                pass
         
-        if erreurs_fenetre:
-            return Response({'error': 'Fenêtre de commande fermée', 'details': erreurs_fenetre}, status=400)
+        # Vérifier si l'utilisateur est authentifié et a des droits d'admin
+        est_admin_ou_staff = request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)
+        
+        # Si ce n'est pas un admin/staff, vérifier les fenêtres de commande
+        if not est_admin_ou_staff:
+            for ligne_data in lignes_data:
+                menu_plat_id = ligne_data['menu_plat_id']
+                try:
+                    menu_plat = MenuPlat.objects.select_related('plat').get(pk=menu_plat_id)
+                    categorie_restau = menu_plat.plat.categorie_restau
+                    
+                    if not FenetreCommande.est_dans_fenetre(categorie_restau, date_commande):
+                        fenetre = FenetreCommande.objects.filter(categorie_restau=categorie_restau, actif=True).first()
+                        if fenetre:
+                            erreurs_fenetre.append(
+                                f"Fenêtre de commande fermée pour {menu_plat.plat.nom} "
+                                f"({menu_plat.plat.get_categorie_restau_display()}). "
+                                f"Heure limite: {fenetre.heure_limite.strftime('%H:%M')}"
+                            )
+                except MenuPlat.DoesNotExist:
+                    pass
+            
+            if erreurs_fenetre:
+                return Response({'error': 'Fenêtre de commande fermée', 'details': erreurs_fenetre}, status=400)
         
         try:
             with transaction.atomic():
@@ -1615,8 +1623,12 @@ def menu_public(request, token):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def commander_public(request, token):
-    """Créer une commande publique via le token du menu ou le menu du jour si token='aujourdhui'"""
-    from datetime import date
+    """Créer une commande publique via le token du menu ou le menu du jour si token='aujourdhui'
+    
+    Les commandes publiques sont limitées à 13h00 GMT (heure de Conakry)
+    """
+    from datetime import date, time
+    from django.utils import timezone
     
     # Si token = "aujourdhui", chercher le menu du jour
     if token == 'aujourdhui':
@@ -1633,6 +1645,20 @@ def commander_public(request, token):
             menu = Menu.objects.get(token_public=token, publication_at__isnull=False)
         except Menu.DoesNotExist:
             return Response({'error': 'Menu non trouvé ou non publié'}, status=404)
+    
+    # Vérifier la restriction horaire pour les commandes publiques (13h00 GMT)
+    heure_limite_public = time(13, 0, 0)
+    heure_actuelle = timezone.now().time()
+    
+    # Si la date de commande est aujourd'hui, vérifier l'heure
+    if menu.date_menu == timezone.now().date():
+        if heure_actuelle > heure_limite_public:
+            return Response({
+                'error': 'Les commandes publiques sont fermées',
+                'message': 'Les commandes publiques ne sont acceptées que jusqu\'à 13h00 GMT (heure de Conakry)',
+                'heure_limite': '13:00',
+                'heure_actuelle': heure_actuelle.strftime('%H:%M:%S')
+            }, status=403)
     
     # Récupérer les données de la commande
     nom_employe = request.data.get('nom_employe', '')

@@ -70,3 +70,4 @@ except Exception as e:
     print("Détails de l'erreur:")
     print(traceback.format_exc())
 
+

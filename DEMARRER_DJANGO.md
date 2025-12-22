@@ -100,3 +100,4 @@ Appuyez sur **Ctrl+C** dans le terminal où le serveur tourne.
 Le serveur Django doit être démarré **avant** d'accéder à l'application. Si vous voyez une erreur "API non accessible" dans l'interface, c'est que le serveur Django n'est pas démarré.
 
 
+
