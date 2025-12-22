@@ -26,14 +26,8 @@
         window.API_BASE_URL = '/api';
     </script>
     
-    <!-- Scripts vanilla JS -->
+    <!-- Scripts vanilla JS - Charger le main.js qui importe les autres modules -->
     {% load static %}
-    <script type="module" src="{% static 'depenses/js/config/api.js' %}"></script>
-    <script type="module" src="{% static 'depenses/js/utils/currency.js' %}"></script>
-    <script type="module" src="{% static 'depenses/js/utils/toast.js' %}"></script>
-    <script type="module" src="{% static 'depenses/js/services/auth.js' %}"></script>
-    <script type="module" src="{% static 'depenses/js/services/api.js' %}"></script>
-    <script type="module" src="{% static 'depenses/js/router.js' %}"></script>
     <script type="module" src="{% static 'depenses/js/main.js' %}"></script>
 </body>
 </html>
