@@ -10,3 +10,5 @@ CREATE DATABASE IF NOT EXISTS suivi_depense CHARACTER SET utf8mb4 COLLATE utf8mb
 
 
 
+
+

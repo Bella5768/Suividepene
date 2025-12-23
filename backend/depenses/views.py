@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Avg, Count, Q
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from datetime import datetime, timedelta
 import calendar
@@ -1285,7 +1285,23 @@ class CommandeViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Créer une commande pour l'utilisateur connecté"""
-        serializer.save(utilisateur=self.request.user)
+        try:
+            serializer.save(utilisateur=self.request.user)
+        except IntegrityError as e:
+            # Si une commande existe déjà pour cet utilisateur et cette date, la mettre à jour
+            if 'unique' in str(e).lower() or 'utilisateur_id' in str(e).lower():
+                data = serializer.validated_data
+                commande = Commande.objects.get(
+                    utilisateur=self.request.user,
+                    date_commande=data.get('date_commande')
+                )
+                # Mettre à jour la commande existante
+                for field, value in data.items():
+                    setattr(commande, field, value)
+                commande.save()
+                serializer.instance = commande
+            else:
+                raise
     
     @action(detail=False, methods=['post'])
     def creer_avec_lignes(self, request):
@@ -1307,8 +1323,8 @@ class CommandeViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Vous ne pouvez commander qu\'un seul plat (quantité = 1)'}, status=400)
         
         # Vérifier les fenêtres de commande pour chaque plat
-        # Les utilisateurs authentifiés (admins/staff) peuvent commander sans restriction
-        # Les utilisateurs publics sont limités à 13h00 GMT
+        # Les admins/staff peuvent commander sans restriction horaire
+        # Les utilisateurs normaux sont limités à 13h00 GMT
         erreurs_fenetre = []
         
         # Vérifier si l'utilisateur est authentifié et a des droits d'admin
@@ -1322,7 +1338,8 @@ class CommandeViewSet(viewsets.ModelViewSet):
                     menu_plat = MenuPlat.objects.select_related('plat').get(pk=menu_plat_id)
                     categorie_restau = menu_plat.plat.categorie_restau
                     
-                    if not FenetreCommande.est_dans_fenetre(categorie_restau, date_commande):
+                    # Vérifier la fenêtre de commande (13h00 GMT pour les utilisateurs normaux)
+                    if not FenetreCommande.est_dans_fenetre(categorie_restau, date_commande, est_public=False):
                         fenetre = FenetreCommande.objects.filter(categorie_restau=categorie_restau, actif=True).first()
                         if fenetre:
                             erreurs_fenetre.append(
@@ -1330,6 +1347,16 @@ class CommandeViewSet(viewsets.ModelViewSet):
                                 f"({menu_plat.plat.get_categorie_restau_display()}). "
                                 f"Heure limite: {fenetre.heure_limite.strftime('%H:%M')}"
                             )
+                        else:
+                            # Si pas de fenêtre configurée, appliquer la limite par défaut de 13h00 GMT
+                            from datetime import time
+                            heure_limite_public = time(13, 0, 0)
+                            heure_actuelle = timezone.now().time()
+                            if date_commande == timezone.now().date() and heure_actuelle > heure_limite_public:
+                                erreurs_fenetre.append(
+                                    f"Fenêtre de commande fermée pour {menu_plat.plat.nom}. "
+                                    f"Heure limite: 13:00 GMT"
+                                )
                 except MenuPlat.DoesNotExist:
                     pass
             
@@ -1338,12 +1365,18 @@ class CommandeViewSet(viewsets.ModelViewSet):
         
         try:
             with transaction.atomic():
-                # Créer la commande
-                commande = Commande.objects.create(
+                # Vérifier si une commande existe déjà pour cet utilisateur et cette date
+                commande, created = Commande.objects.get_or_create(
                     utilisateur=request.user,
                     date_commande=date_commande,
-                    etat='brouillon'
+                    defaults={'etat': 'brouillon'}
                 )
+                
+                # Si la commande existait déjà, supprimer les anciennes lignes et réinitialiser l'état
+                if not created:
+                    commande.lignes.all().delete()
+                    commande.etat = 'brouillon'
+                    commande.save()
                 
                 # Créer les lignes
                 for ligne_data in lignes_data:
@@ -1389,10 +1422,11 @@ class CommandeViewSet(viewsets.ModelViewSet):
         
         # Vérifier les permissions de validation
         from .models import UserPermission
-        has_permission = False
         
-        # Les superusers ont toujours la permission
-        if request.user.is_superuser:
+        # Les superusers et staff ont toujours la permission
+        est_admin_ou_staff = request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)
+        
+        if est_admin_ou_staff:
             has_permission = True
         else:
             # Vérifier si l'utilisateur a la permission de valider les commandes
@@ -1408,6 +1442,41 @@ class CommandeViewSet(viewsets.ModelViewSet):
         
         if commande.etat != 'brouillon':
             return Response({'error': 'Seules les commandes en brouillon peuvent être validées'}, status=400)
+        
+        # Vérifier la fenêtre de commande avant de valider
+        # Les admins/staff et ceux qui ont la permission de validation peuvent valider sans restriction horaire
+        # Les utilisateurs normaux sont limités à 13h00 GMT
+        # Si l'utilisateur a la permission de validation (has_permission est True ici), il peut valider après 13h00
+        peut_valider_apres_limite = est_admin_ou_staff or has_permission
+        
+        if not peut_valider_apres_limite:
+            erreurs_fenetre = []
+            for ligne in commande.lignes.all():
+                categorie_restau = ligne.menu_plat.plat.categorie_restau
+                if not FenetreCommande.est_dans_fenetre(categorie_restau, commande.date_commande, est_public=False):
+                    fenetre = FenetreCommande.objects.filter(categorie_restau=categorie_restau, actif=True).first()
+                    if fenetre:
+                        erreurs_fenetre.append(
+                            f"Fenêtre de commande fermée pour {ligne.menu_plat.plat.nom} "
+                            f"({ligne.menu_plat.plat.get_categorie_restau_display()}). "
+                            f"Heure limite: {fenetre.heure_limite.strftime('%H:%M')}"
+                        )
+                    else:
+                        # Si pas de fenêtre configurée, appliquer la limite par défaut de 13h00 GMT
+                        from datetime import time
+                        heure_limite_public = time(13, 0, 0)
+                        heure_actuelle = timezone.now().time()
+                        if commande.date_commande == timezone.now().date() and heure_actuelle > heure_limite_public:
+                            erreurs_fenetre.append(
+                                f"Fenêtre de commande fermée pour {ligne.menu_plat.plat.nom}. "
+                                f"Heure limite: 13:00 GMT"
+                            )
+            
+            if erreurs_fenetre:
+                return Response({
+                    'error': 'Impossible de valider la commande: fenêtre de commande fermée',
+                    'details': erreurs_fenetre
+                }, status=400)
         
         try:
             with transaction.atomic():

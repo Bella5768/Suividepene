@@ -403,23 +403,26 @@ class FenetreCommande(models.Model):
             else:
                 return False
         
-        # Pour les commandes authentifiées, pas de restriction horaire
+        # Pour les commandes authentifiées, appliquer la restriction horaire
+        # Limite par défaut: 13h00 GMT si aucune fenêtre n'est configurée
         try:
             fenetre = cls.objects.get(categorie_restau=categorie_restau, actif=True)
-            heure_actuelle = timezone.now().time()
-            
-            # Si la date de commande est aujourd'hui
-            if date_commande == timezone.now().date():
-                return heure_actuelle <= fenetre.heure_limite
-            # Si la date est dans le futur, on accepte
-            elif date_commande > timezone.now().date():
-                return True
-            # Si la date est dans le passé, on refuse
-            else:
-                return False
+            heure_limite = fenetre.heure_limite
         except cls.DoesNotExist:
-            # Si pas de fenêtre configurée, on accepte par défaut
+            # Si pas de fenêtre configurée, utiliser la limite par défaut de 13h00 GMT
+            heure_limite = time(13, 0, 0)
+        
+        heure_actuelle = timezone.now().time()
+        
+        # Si la date de commande est aujourd'hui
+        if date_commande == timezone.now().date():
+            return heure_actuelle <= heure_limite
+        # Si la date est dans le futur, on accepte
+        elif date_commande > timezone.now().date():
             return True
+        # Si la date est dans le passé, on refuse
+        else:
+            return False
 
 
 class RegleSubvention(models.Model):
@@ -612,8 +615,8 @@ class CommandeLigne(models.Model):
     
     @property
     def prix_effectif(self):
-        """Calcule le prix effectif: si prix > 50000, utilise 30000, sinon utilise le prix réel"""
-        if self.prix_unitaire > 50000:
+        """Calcule le prix effectif: si prix >= 50000, utilise 30000, sinon utilise le prix réel"""
+        if self.prix_unitaire >= 50000:
             return Decimal('30000.00')
         return self.prix_unitaire
     
@@ -663,11 +666,11 @@ class Facture(models.Model):
         self.total_subvention = commandes.aggregate(Sum('montant_subvention'))['montant_subvention__sum'] or Decimal('0.00')
         self.total_net = commandes.aggregate(Sum('montant_net'))['montant_net__sum'] or Decimal('0.00')
         
-        # Calculer le total des suppléments (différence entre prix réel et prix effectif pour plats > 50000)
+        # Calculer le total des suppléments (différence entre prix réel et prix effectif pour plats >= 50000)
         total_supplement = Decimal('0.00')
         for commande in commandes:
             for ligne in commande.lignes.all():
-                if ligne.prix_unitaire > 50000:
+                if ligne.prix_unitaire >= 50000:
                     # Supplément = (prix réel - prix effectif) × quantité
                     supplement = (ligne.prix_unitaire - ligne.prix_effectif) * ligne.quantite
                     total_supplement += supplement
