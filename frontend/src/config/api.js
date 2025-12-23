@@ -8,7 +8,12 @@ const getApiBaseUrl = () => {
   // En production (Vercel), utiliser la variable d'environnement
   if (import.meta.env.PROD) {
     // Vercel injecte les variables d'environnement avec le préfixe VITE_
-    return import.meta.env.VITE_API_URL || 'https://votre-backend-url.com';
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (!apiUrl || apiUrl === 'https://votre-backend-url.com') {
+      console.warn('⚠️ VITE_API_URL non configurée correctement. Utilisez: https://bella5768.pythonanywhere.com');
+      return 'https://bella5768.pythonanywhere.com';
+    }
+    return apiUrl;
   }
   
   // En développement, utiliser le proxy Vite (localhost:8000)
