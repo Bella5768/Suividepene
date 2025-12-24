@@ -18,62 +18,55 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const forcedLogout = sessionStorage.getItem('forceLoggedOut') === 'true'
+    try {
+      const forcedLogout = sessionStorage.getItem('forceLoggedOut') === 'true'
 
-    // Si on a forcé la déconnexion, on ignore la session Django injectée
-    if (!forcedLogout && window.DJANGO_USER && window.DJANGO_USER.isAuthenticated) {
-      setUser({ username: window.DJANGO_USER.username })
-      setLoading(false)
-      return
-    }
-    
-    // Sinon, vérifier le token JWT et récupérer les infos utilisateur
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      // Si on a forcé la déconnexion, on ignore la session Django injectée
+      if (!forcedLogout && window.DJANGO_USER && window.DJANGO_USER.isAuthenticated) {
+        setUser({ username: window.DJANGO_USER.username })
+        setLoading(false)
+        return
+      }
+      
+      // Sinon, vérifier le token JWT et récupérer les infos utilisateur
+      const token = localStorage.getItem('access_token')
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        
         // Essayer de récupérer les infos utilisateur via l'endpoint /me
-        axios.get(getApiUrl('/api/users/me/'))
+        axios.get(getApiUrl('/api/users/me/'), { timeout: 5000 })
           .then(response => {
-            const userData = response.data
-            // S'assurer que les permissions sont toujours un tableau
-            const permissions = Array.isArray(userData.permissions) ? userData.permissions : (userData.permissions || [])
-            setUser({
-              id: userData.id,
-              username: userData.username,
-              email: userData.email,
-              is_staff: userData.is_staff,
-              is_superuser: userData.is_superuser,
-              is_active: userData.is_active,
-              permissions: permissions,
-            })
-          })
-        .catch(() => {
-          // Si /me ne fonctionne pas, essayer /users/
-          axios.get(getApiUrl('/api/users/'))
-            .then(response => {
-              const users = Array.isArray(response.data) ? response.data : response.data.results || []
-              if (users.length > 0) {
-                const userData = users[0]
-                setUser({
-                  id: userData.id,
-                  username: userData.username,
-                  email: userData.email,
-                  is_staff: userData.is_staff,
-                  is_superuser: userData.is_superuser,
-                  is_active: userData.is_active,
-                  permissions: userData.permissions || [],
-                })
-              } else {
-                setUser({ username: 'User' })
-              }
-            })
-            .catch(() => {
+            try {
+              const userData = response.data
+              const permissions = Array.isArray(userData.permissions) ? userData.permissions : (userData.permissions || [])
+              setUser({
+                id: userData.id,
+                username: userData.username,
+                email: userData.email,
+                is_staff: userData.is_staff,
+                is_superuser: userData.is_superuser,
+                is_active: userData.is_active,
+                permissions: permissions,
+              })
+            } catch (err) {
+              console.error('Erreur lors du traitement des données utilisateur:', err)
               setUser({ username: 'User' })
-            })
-        })
-      sessionStorage.removeItem('forceLoggedOut')
+            }
+          })
+          .catch(() => {
+            setUser({ username: 'User' })
+          })
+          .finally(() => {
+            sessionStorage.removeItem('forceLoggedOut')
+            setLoading(false)
+          })
+      } else {
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation du contexte d\'authentification:', error)
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   const login = async (username, password) => {
