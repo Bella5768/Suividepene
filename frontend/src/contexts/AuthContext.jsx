@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
+import { API_BASE_URL, getApiUrl } from '../config/api'
 
 const AuthContext = createContext()
 
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
         // Essayer de récupérer les infos utilisateur via l'endpoint /me
-        axios.get('/api/users/me/')
+        axios.get(getApiUrl('/api/users/me/'))
           .then(response => {
             const userData = response.data
             // S'assurer que les permissions sont toujours un tableau
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }) => {
           })
         .catch(() => {
           // Si /me ne fonctionne pas, essayer /users/
-          axios.get('/api/users/')
+          axios.get(getApiUrl('/api/users/'))
             .then(response => {
               const users = Array.isArray(response.data) ? response.data : response.data.results || []
               if (users.length > 0) {
@@ -77,7 +78,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post('/api/auth/token/', {
+      const tokenUrl = getApiUrl('/api/auth/token/')
+      const response = await axios.post(tokenUrl, {
         username,
         password,
       })
@@ -89,7 +91,8 @@ export const AuthProvider = ({ children }) => {
       
       // Récupérer les informations complètes de l'utilisateur
       try {
-        const userResponse = await axios.get('/api/users/me/')
+        const userUrl = getApiUrl('/api/users/me/')
+        const userResponse = await axios.get(userUrl)
         const userData = userResponse.data
         // S'assurer que les permissions sont toujours un tableau
         const permissions = Array.isArray(userData.permissions) ? userData.permissions : (userData.permissions || [])
@@ -105,7 +108,8 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         // Si /me ne fonctionne pas, essayer de trouver dans la liste
         try {
-          const userResponse = await axios.get('/api/users/')
+          const usersUrl = getApiUrl('/api/users/')
+          const userResponse = await axios.get(usersUrl)
           const users = Array.isArray(userResponse.data) ? userResponse.data : userResponse.data.results || []
           const currentUser = users.find(u => u.username === username)
           if (currentUser) {
