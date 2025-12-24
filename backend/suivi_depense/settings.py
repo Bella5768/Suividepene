@@ -227,15 +227,16 @@ if DEBUG:
         cast=lambda v: [s.strip() for s in v.split(',')]
     )
 else:
+    # Production: Accept requests from Vercel and other domains
     CORS_ALLOWED_ORIGINS = config(
         'CORS_ALLOWED_ORIGINS',
-        default='',
+        default='https://suivi-depense-frontend.vercel.app,https://bella5768.pythonanywhere.com',
         cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
     )
     if not CORS_ALLOWED_ORIGINS:
         import warnings
         warnings.warn(
-            "CORS_ALLOWED_ORIGINS not configured for production. Set it to your production domain.",
+            "CORS_ALLOWED_ORIGINS not configured for production. Using default Vercel domain.",
             RuntimeWarning
         )
 
