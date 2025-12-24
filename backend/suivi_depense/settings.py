@@ -230,9 +230,11 @@ else:
     # Production: Accept requests from Vercel and other domains
     CORS_ALLOWED_ORIGINS = config(
         'CORS_ALLOWED_ORIGINS',
-        default='https://suivi-depense-frontend.vercel.app,https://bella5768.pythonanywhere.com',
+        default='https://suivi-depense-frontend.vercel.app,https://bella5768.pythonanywhere.com,https://*.vercel.app',
         cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
     )
+    # Allow all Vercel preview deployments
+    CORS_ALLOW_ALL_ORIGINS = False
     if not CORS_ALLOWED_ORIGINS:
         import warnings
         warnings.warn(
