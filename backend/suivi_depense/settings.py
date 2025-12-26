@@ -214,25 +214,18 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-if DEBUG:
-    CORS_ALLOWED_ORIGINS = config(
-        'CORS_ALLOWED_ORIGINS',
-        default='http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:5173',
-        cast=lambda v: [s.strip() for s in v.split(',')]
-    )
-else:
-    # Production: Accept requests from Vercel and other domains
-    CORS_ALLOWED_ORIGINS = config(
-        'CORS_ALLOWED_ORIGINS',
-        default='https://suividepenecsig.vercel.app,https://bella5768.pythonanywhere.com',
-        cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
-    )
-    if not CORS_ALLOWED_ORIGINS:
-        import warnings
-        warnings.warn(
-            "CORS_ALLOWED_ORIGINS not configured for production. Using default Vercel domain.",
-            RuntimeWarning
-        )
+CORS_ALLOWED_ORIGINS = [
+    'https://suividepenecsig.vercel.app',
+    'https://bella5768.pythonanywhere.com',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
+    'http://127.0.0.1:5173',
+]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
