@@ -235,6 +235,14 @@ else:
         )
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
