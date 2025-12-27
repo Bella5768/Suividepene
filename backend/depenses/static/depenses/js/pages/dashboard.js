@@ -94,21 +94,21 @@ function renderDashboardContent(rapport, operations, daysInMonth) {
 
   content.innerHTML = `
     <div class="dashboard-stats">
-      <div class="stat-card">
-        <div class="stat-label">Total des dépenses</div>
-        <div class="stat-value">${formatGNF(totalDepenses)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Total des dépenses</div>
+        <div class="stat-value" style="color: white;">${formatGNF(totalDepenses)}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Total prévu</div>
-        <div class="stat-value">${formatGNF(totalPrevu)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Total prévu</div>
+        <div class="stat-value" style="color: white;">${formatGNF(totalPrevu)}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Écart</div>
-        <div class="stat-value ${ecart < 0 ? 'negative' : ''}">${formatGNF(ecart)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, ${ecart < 0 ? '#eb3349, #f45c43' : '#56ab2f, #a8e063'}); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Écart</div>
+        <div class="stat-value" style="color: white;">${formatGNF(ecart)}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Moyenne journalière</div>
-        <div class="stat-value">${formatGNF(moyenneJournaliere)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Moyenne journalière</div>
+        <div class="stat-value" style="color: white;">${formatGNF(moyenneJournaliere)}</div>
       </div>
     </div>
 
