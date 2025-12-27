@@ -255,16 +255,22 @@ CORS_EXPOSE_HEADERS = [
 
 # Security Settings
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False  # PythonAnywhere gère HTTPS
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'
+    X_FRAME_OPTIONS = 'SAMEORIGIN'
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# CSRF Trusted Origins for PythonAnywhere
+CSRF_TRUSTED_ORIGINS = [
+    'https://bella5768.pythonanywhere.com',
+    'http://bella5768.pythonanywhere.com',
+]
 
 # File Upload
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
