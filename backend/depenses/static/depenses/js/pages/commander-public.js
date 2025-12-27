@@ -2,9 +2,9 @@
  * Page Commander Public - STUB À COMPLÉTER
  */
 
-import { apiService } from '../services/api.js';
-import { formatGNF } from '../utils/currency.js';
-import { toast } from '../utils/toast.js';
+import { apiService } from '/static/depenses/js/services/api.js';
+import { formatGNF } from '/static/depenses/js/utils/currency.js';
+import { toast } from '/static/depenses/js/utils/toast.js';
 
 export async function renderCommanderPublic(token) {
   const app = document.getElementById('app');

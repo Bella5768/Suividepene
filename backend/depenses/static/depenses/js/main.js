@@ -2,26 +2,26 @@
  * Point d'entrée principal de l'application
  */
 
-import { router } from './router.js';
-import { createLayout, getMainContent } from './layout.js';
-import { authService } from './services/auth.js';
+import { router } from '/static/depenses/js/router.js';
+import { createLayout, getMainContent } from '/static/depenses/js/layout.js';
+import { authService } from '/static/depenses/js/services/auth.js';
 
 // Importer les pages
-import { renderLogin } from './pages/login.js';
-import { renderDashboard } from './pages/dashboard.js';
-import { renderOperations } from './pages/operations.js';
-import { renderPrevisions } from './pages/previsions.js';
-import { renderRapports } from './pages/rapports.js';
-import { renderCategories } from './pages/categories.js';
-import { renderUtilisateurs } from './pages/utilisateurs.js';
-import { renderAudit } from './pages/audit.js';
-import { renderImputations } from './pages/imputations.js';
-import { renderRestaurationPlats } from './pages/restauration-plats.js';
-import { renderRestaurationMenus } from './pages/restauration-menus.js';
-import { renderRestaurationCommandes } from './pages/restauration-commandes.js';
-import { renderExtrasRestauration } from './pages/extras-restauration.js';
-import { renderTableauBordCantine } from './pages/tableau-bord-cantine.js';
-import { renderCommanderPublic } from './pages/commander-public.js';
+import { renderLogin } from '/static/depenses/js/pages/login.js';
+import { renderDashboard } from '/static/depenses/js/pages/dashboard.js';
+import { renderOperations } from '/static/depenses/js/pages/operations.js';
+import { renderPrevisions } from '/static/depenses/js/pages/previsions.js';
+import { renderRapports } from '/static/depenses/js/pages/rapports.js';
+import { renderCategories } from '/static/depenses/js/pages/categories.js';
+import { renderUtilisateurs } from '/static/depenses/js/pages/utilisateurs.js';
+import { renderAudit } from '/static/depenses/js/pages/audit.js';
+import { renderImputations } from '/static/depenses/js/pages/imputations.js';
+import { renderRestaurationPlats } from '/static/depenses/js/pages/restauration-plats.js';
+import { renderRestaurationMenus } from '/static/depenses/js/pages/restauration-menus.js';
+import { renderRestaurationCommandes } from '/static/depenses/js/pages/restauration-commandes.js';
+import { renderExtrasRestauration } from '/static/depenses/js/pages/extras-restauration.js';
+import { renderTableauBordCantine } from '/static/depenses/js/pages/tableau-bord-cantine.js';
+import { renderCommanderPublic } from '/static/depenses/js/pages/commander-public.js';
 
 /**
  * Vérifier l'authentification avant d'afficher une page protégée

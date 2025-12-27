@@ -2,8 +2,8 @@
  * Layout principal avec header et sidebar
  */
 
-import { authService } from './services/auth.js';
-import { router } from './router.js';
+import { authService } from '/static/depenses/js/services/auth.js';
+import { router } from '/static/depenses/js/router.js';
 
 let currentUser = null;
 let unsubscribeAuth = null;
@@ -65,7 +65,7 @@ function createHeader() {
       <div class="header-content">
         <div class="header-left">
           <div class="header-brand">
-            <img src="assets/logocsig.png" alt="Logo CSIG" class="header-logo" />
+            <img src="/static/depenses/assets/logocsig.png" alt="Logo CSIG" class="header-logo" />
             <h1 class="header-title">Suivi Dépense CSIG</h1>
           </div>
         </div>

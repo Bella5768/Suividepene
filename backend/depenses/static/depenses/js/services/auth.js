@@ -3,8 +3,8 @@
  * Gère la connexion, déconnexion et la vérification de l'état d'authentification
  */
 
-import { getApiUrl } from '../config/api.js';
-import { toast } from '../utils/toast.js';
+import { getApiUrl } from '/static/depenses/js/config/api.js';
+import { toast } from '/static/depenses/js/utils/toast.js';
 
 class AuthService {
   constructor() {
@@ -60,7 +60,8 @@ class AuthService {
           },
         });
 
-        if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (response.ok && contentType && contentType.includes('application/json')) {
           const userData = await response.json();
           const permissions = Array.isArray(userData.permissions) 
             ? userData.permissions 
@@ -104,7 +105,8 @@ class AuthService {
         },
       });
 
-      if (response.ok) {
+      const contentType = response.headers.get('content-type');
+      if (response.ok && contentType && contentType.includes('application/json')) {
         const data = await response.json();
         const users = Array.isArray(data) ? data : (data.results || []);
         if (users.length > 0) {
@@ -143,11 +145,20 @@ class AuthService {
         body: JSON.stringify({ username, password }),
       });
 
+      const contentType = response.headers.get('content-type');
       if (!response.ok) {
-        const errorData = await response.json();
-        const message = errorData.detail || 'Erreur de connexion';
+        let message = 'Erreur de connexion';
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          message = errorData.detail || message;
+        }
         toast.error(message);
         return { success: false, error: message };
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        toast.error('Erreur serveur');
+        return { success: false, error: 'Erreur serveur' };
       }
 
       const data = await response.json();
@@ -165,7 +176,8 @@ class AuthService {
           },
         });
 
-        if (userResponse.ok) {
+        const userContentType = userResponse.headers.get('content-type');
+        if (userResponse.ok && userContentType && userContentType.includes('application/json')) {
           const userData = await userResponse.json();
           const permissions = Array.isArray(userData.permissions) 
             ? userData.permissions 
@@ -189,7 +201,8 @@ class AuthService {
             },
           });
           
-          if (usersResponse.ok) {
+          const usersContentType = usersResponse.headers.get('content-type');
+          if (usersResponse.ok && usersContentType && usersContentType.includes('application/json')) {
             const usersData = await usersResponse.json();
             const users = Array.isArray(usersData) ? usersData : (usersData.results || []);
             const currentUser = users.find(u => u.username === username);

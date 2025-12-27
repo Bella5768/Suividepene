@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/auth/token-django/', get_token, name='django-token'),
     path('api/', include('depenses.urls')),
     path('', index, name='index'),
+    path('login/', index, name='login'),
     path('dashboard/', index, name='dashboard'),
     path('operations/', index, name='operations'),
     path('previsions/', index, name='previsions'),

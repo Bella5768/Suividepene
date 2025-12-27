@@ -2,10 +2,10 @@
  * Page Dashboard (Tableau de bord)
  */
 
-import { apiService } from '../services/api.js';
-import { formatGNF } from '../utils/currency.js';
-import { toast } from '../utils/toast.js';
-import { getMainContent } from '../layout.js';
+import { apiService } from '/static/depenses/js/services/api.js';
+import { formatGNF } from '/static/depenses/js/utils/currency.js';
+import { toast } from '/static/depenses/js/utils/toast.js';
+import { getMainContent } from '/static/depenses/js/layout.js';
 
 export async function renderDashboard() {
   const main = getMainContent();

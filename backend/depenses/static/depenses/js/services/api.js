@@ -3,8 +3,8 @@
  * Gère les appels HTTP avec authentification
  */
 
-import { getApiUrl } from '../config/api.js';
-import { authService } from './auth.js';
+import { getApiUrl } from '/static/depenses/js/config/api.js';
+import { authService } from '/static/depenses/js/services/auth.js';
 
 class ApiService {
   /**

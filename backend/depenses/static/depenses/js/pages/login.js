@@ -2,9 +2,9 @@
  * Page de connexion
  */
 
-import { authService } from '../services/auth.js';
-import { router } from '../router.js';
-import { toast } from '../utils/toast.js';
+import { authService } from '/static/depenses/js/services/auth.js';
+import { router } from '/static/depenses/js/router.js';
+import { toast } from '/static/depenses/js/utils/toast.js';
 
 export async function renderLogin() {
   const app = document.getElementById('app');
@@ -21,7 +21,7 @@ export async function renderLogin() {
       <div class="login-card">
         <div style="text-align: center; margin-bottom: 2rem;">
           <img 
-            src="assets/logocsig.png" 
+            src="/static/depenses/assets/logocsig.png" 
             alt="Logo Cité des Sciences et de l'Innovation" 
             style="max-width: 120px; height: auto; margin-bottom: 1rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));" 
           />

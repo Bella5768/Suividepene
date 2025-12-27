@@ -82,7 +82,7 @@ class Router {
         
         // Vérifier l'authentification si nécessaire
         if (route.requiresAuth) {
-          const { authService } = await import('./services/auth.js');
+          const { authService } = await import('/static/depenses/js/services/auth.js');
           if (!authService.isAuthenticated()) {
             this.navigate('/login');
             return;

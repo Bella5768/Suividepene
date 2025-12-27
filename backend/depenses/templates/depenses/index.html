@@ -23,7 +23,7 @@
             isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
         };
         window.DJANGO_CSRF_TOKEN = '{{ csrf_token }}';
-        window.API_BASE_URL = '/api';
+        window.API_BASE_URL = '';
     </script>
     
     <!-- Scripts vanilla JS - Charger le main.js qui importe les autres modules -->
