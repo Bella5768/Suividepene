@@ -26,7 +26,8 @@ if not SECRET_KEY:
     )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+# Par défaut, activer DEBUG en développement local
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,bella5768.pythonanywhere.com', cast=lambda v: [s.strip() for s in v.split(',')])
 
@@ -215,18 +216,25 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = [
-    'https://suividepenecsig.vercel.app',
-    'https://bella5768.pythonanywhere.com',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://127.0.0.1:3002',
-    'http://127.0.0.1:5173',
-]
+# Toujours autoriser les origines localhost en développement
+_default_cors_origins = 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:5173,https://suividepenecsig.vercel.app,https://bella5768.pythonanywhere.com'
+
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS',
+        default=_default_cors_origins,
+        cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
+    )
+else:
+    # En production, utiliser la variable d'environnement ou les origines par défaut si non définie
+    cors_origins_env = config('CORS_ALLOWED_ORIGINS', default=_default_cors_origins, cast=lambda v: v)
+    CORS_ALLOWED_ORIGINS = [s.strip() for s in cors_origins_env.split(',') if s.strip()]
+    if not CORS_ALLOWED_ORIGINS or CORS_ALLOWED_ORIGINS == [s.strip() for s in _default_cors_origins.split(',') if s.strip()]:
+        import warnings
+        warnings.warn(
+            "CORS_ALLOWED_ORIGINS not configured for production. Using localhost origins. Set CORS_ALLOWED_ORIGINS environment variable.",
+            RuntimeWarning
+        )
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
