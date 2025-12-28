@@ -77,22 +77,48 @@ function renderStats() {
   const moisFormate = new Date(selectedMois + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 
   content.innerHTML = `
+    <!-- Lien de commande publique -->
+    <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 2rem;">
+      <h2 style="color: white; margin-bottom: 1rem;">🔗 Lien de Commande du Jour</h2>
+      <p style="color: rgba(255,255,255,0.9); margin-bottom: 1rem;">
+        Partagez ce lien avec tous les travailleurs pour qu'ils puissent commander leur repas
+      </p>
+      <div style="display: flex; gap: 1rem; align-items: center; background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px;">
+        <input 
+          type="text" 
+          id="lien-commande" 
+          readonly 
+          value="${window.location.origin}/commander"
+          style="flex: 1; padding: 0.75rem; border: none; border-radius: 6px; font-size: 1rem;"
+        />
+        <button class="btn" id="btn-copier-lien" style="background: white; color: #667eea; font-weight: bold;">
+          📋 Copier
+        </button>
+        <button class="btn" id="btn-ouvrir-lien" style="background: #10b981; color: white; font-weight: bold;">
+          🔗 Ouvrir
+        </button>
+      </div>
+      <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem; font-size: 0.9rem;">
+        ⏰ Limite de commande : 13h00 GMT
+      </p>
+    </div>
+
     <div class="dashboard-stats">
-      <div class="stat-card">
-        <div class="stat-label">Total commandes</div>
-        <div class="stat-value">${stats?.total_commandes || 0}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Total commandes</div>
+        <div class="stat-value" style="color: white;">${stats?.total_commandes || 0}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Montant brut</div>
-        <div class="stat-value">${formatGNF(stats?.montant_brut || 0)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Montant brut</div>
+        <div class="stat-value" style="color: white;">${formatGNF(stats?.montant_brut || 0)}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Subventions</div>
-        <div class="stat-value">${formatGNF(stats?.montant_subvention || 0)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Subventions</div>
+        <div class="stat-value" style="color: white;">${formatGNF(stats?.montant_subvention || 0)}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Montant net</div>
-        <div class="stat-value">${formatGNF(stats?.montant_net || 0)}</div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white;">
+        <div class="stat-label" style="color: rgba(255,255,255,0.9);">Montant net</div>
+        <div class="stat-value" style="color: white;">${formatGNF(stats?.montant_net || 0)}</div>
       </div>
     </div>
 
@@ -150,5 +176,18 @@ function attachEvents() {
   document.getElementById('btn-load')?.addEventListener('click', () => {
     selectedMois = document.getElementById('filter-mois').value;
     loadStats();
+  });
+  
+  // Copier le lien
+  document.getElementById('btn-copier-lien')?.addEventListener('click', () => {
+    const input = document.getElementById('lien-commande');
+    input.select();
+    document.execCommand('copy');
+    toast.success('Lien copié dans le presse-papier !');
+  });
+  
+  // Ouvrir le lien dans un nouvel onglet
+  document.getElementById('btn-ouvrir-lien')?.addEventListener('click', () => {
+    window.open('/commander', '_blank');
   });
 }
