@@ -615,10 +615,17 @@ class CommandeLigne(models.Model):
     
     @property
     def prix_effectif(self):
-        """Calcule le prix effectif: si prix >= 50000, utilise 30000, sinon utilise le prix réel"""
-        if self.prix_unitaire >= 50000:
+        """Calcule le prix effectif: si prix > 30000, utilise 30000, sinon utilise le prix réel"""
+        if self.prix_unitaire > 30000:
             return Decimal('30000.00')
         return self.prix_unitaire
+    
+    @property
+    def supplement(self):
+        """Calcule le supplément à payer si le prix dépasse 30000 GNF"""
+        if self.prix_unitaire > 30000:
+            return (self.prix_unitaire - Decimal('30000.00')) * self.quantite
+        return Decimal('0.00')
     
     @property
     def montant_ligne(self):
@@ -695,6 +702,7 @@ class UserPermission(models.Model):
         ('restauration_menus', 'Menus (Restauration)'),
         ('restauration_plats', 'Plats (Restauration)'),
         ('tableau_bord_cantine', 'Tableau de Bord Cantine'),
+        ('extras_restauration', 'Extras Restauration (Visiteurs/Stagiaires)'),
     ]
     
     utilisateur = models.ForeignKey(User, on_delete=models.CASCADE, related_name='permissions')

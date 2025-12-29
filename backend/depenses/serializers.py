@@ -17,21 +17,26 @@ class UserPermissionSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
-    permissions = UserPermissionSerializer(many=True, read_only=True)
-    permissions_data = serializers.ListField(
+    permissions_input = serializers.ListField(
         child=serializers.DictField(),
         write_only=True,
         required=False,
         help_text="Liste des permissions à créer/modifier"
     )
+    permissions = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'password', 'date_joined', 'last_login', 'permissions', 'permissions_data']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'password', 'date_joined', 'last_login', 'permissions', 'permissions_input']
         read_only_fields = ['date_joined', 'last_login']
     
+    def get_permissions(self, obj):
+        """Retourner les permissions sérialisées en lecture"""
+        permissions = UserPermission.objects.filter(utilisateur=obj)
+        return UserPermissionSerializer(permissions, many=True).data
+    
     def create(self, validated_data):
-        permissions_data = validated_data.pop('permissions_data', [])
+        permissions_data = validated_data.pop('permissions_input', [])
         password = validated_data.pop('password', None)
         user = User.objects.create(**validated_data)
         if password:
@@ -47,7 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
         return user
     
     def update(self, instance, validated_data):
-        permissions_data = validated_data.pop('permissions_data', None)
+        permissions_data = validated_data.pop('permissions_input', None)
         password = validated_data.pop('password', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

@@ -20,9 +20,11 @@ const FONCTIONNALITES = [
   { id: 'utilisateurs', nom: 'Utilisateurs' },
   { id: 'audit', nom: 'Audit' },
   { id: 'restauration_commandes', nom: 'Commander (Restauration)' },
+  { id: 'restauration_valider_commandes', nom: 'Valider les Commandes (Restauration)' },
   { id: 'restauration_menus', nom: 'Menus (Restauration)' },
   { id: 'restauration_plats', nom: 'Plats (Restauration)' },
   { id: 'tableau_bord_cantine', nom: 'Tableau de Bord Cantine' },
+  { id: 'extras_restauration', nom: 'Extras Restauration (Visiteurs/Stagiaires)' },
 ];
 
 export async function renderUtilisateurs() {
@@ -315,7 +317,7 @@ async function handleUserSubmit(e) {
       });
     }
   });
-  data.permissions = permissions;
+  data.permissions_input = permissions;
 
   try {
     if (editingUser) {

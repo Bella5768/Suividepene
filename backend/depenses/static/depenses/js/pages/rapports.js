@@ -158,12 +158,14 @@ function renderRapport() {
     </div>
   `;
 
-  // Attacher événements export
+  // Attacher événements export - utiliser les nouvelles routes Django avec login_required
   document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
-    window.open(`/api/rapports/export_pdf/?mois=${selectedMois}`, '_blank');
+    toast.info('Génération du PDF en cours...');
+    window.open(`/export/rapport/pdf/?mois=${selectedMois}`, '_blank');
   });
   document.getElementById('btn-export-excel')?.addEventListener('click', () => {
-    window.open(`/api/rapports/export_excel/?mois=${selectedMois}`, '_blank');
+    toast.info('Génération du fichier Excel en cours...');
+    window.open(`/export/rapport/excel/?mois=${selectedMois}`, '_blank');
   });
 }
 

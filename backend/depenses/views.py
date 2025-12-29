@@ -95,13 +95,26 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def me(self, request):
         """Récupère les informations de l'utilisateur actuellement connecté"""
-        serializer = self.get_serializer(request.user)
-        data = serializer.data
-        # Toujours charger les permissions depuis la base de données pour être sûr
         from .models import UserPermission
+        
+        # Charger les permissions depuis la base de données
         permissions = UserPermission.objects.filter(utilisateur=request.user)
         permission_serializer = UserPermissionSerializer(permissions, many=True)
-        data['permissions'] = permission_serializer.data
+        
+        # Construire la réponse manuellement pour être sûr
+        data = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'is_staff': request.user.is_staff,
+            'is_superuser': request.user.is_superuser,
+            'is_active': request.user.is_active,
+            'permissions': permission_serializer.data,
+        }
+        
+        print(f"[ME] User: {request.user.username}, Permissions: {len(permission_serializer.data)}")
         return Response(data)
 
 
@@ -837,6 +850,10 @@ class ImputationViewSet(viewsets.ModelViewSet):
 
 
 class RapportViewSet(viewsets.ViewSet):
+    from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['get'])
@@ -1103,6 +1120,33 @@ class MenuViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
     
+    def create(self, request, *args, **kwargs):
+        """Créer un menu et ajouter automatiquement tous les plats actifs"""
+        response = super().create(request, *args, **kwargs)
+        
+        if response.status_code == 201:
+            # Récupérer le menu créé
+            menu_id = response.data.get('id')
+            menu = Menu.objects.get(pk=menu_id)
+            
+            # Ajouter tous les plats actifs au menu
+            plats_actifs = Plat.objects.filter(actif=True)
+            ordre = 0
+            for plat in plats_actifs:
+                MenuPlat.objects.create(
+                    menu=menu,
+                    plat=plat,
+                    prix_jour=plat.prix_standard,
+                    ordre=ordre
+                )
+                ordre += 1
+            
+            # Recharger le serializer avec les plats
+            serializer = self.get_serializer(menu)
+            return Response(serializer.data, status=201)
+        
+        return response
+    
     def get_queryset(self):
         """Filtrer par date_menu si fourni"""
         queryset = super().get_queryset()
@@ -1260,6 +1304,21 @@ class CommandeViewSet(viewsets.ModelViewSet):
     filterset_fields = ['date_commande', 'etat', 'utilisateur']
     ordering = ['-date_commande', '-created_at']
     
+    def perform_update(self, serializer):
+        """Envoyer un email de confirmation quand le gestionnaire valide la commande"""
+        ancien_etat = serializer.instance.etat
+        commande = serializer.save()
+        nouveau_etat = commande.etat
+        
+        # Si la commande passe de brouillon à validée, envoyer l'email
+        if ancien_etat == 'brouillon' and nouveau_etat == 'validee':
+            try:
+                email_result = envoyer_email_confirmation(commande)
+                if email_result and email_result.get('success'):
+                    print(f"[OK] Email de confirmation envoye a {email_result.get('email')}")
+            except Exception as e:
+                print(f"[ERREUR] Erreur lors de l'envoi de l'email: {e}")
+    
     def get_queryset(self):
         """Filtrer par utilisateur si non-admin et sans permission de validation"""
         queryset = super().get_queryset()
@@ -1350,12 +1409,12 @@ class CommandeViewSet(viewsets.ModelViewSet):
                         else:
                             # Si pas de fenêtre configurée, appliquer la limite par défaut de 13h00 GMT
                             from datetime import time
-                            heure_limite_public = time(13, 0, 0)
+                            heure_limite_public = time(18, 0, 0)
                             heure_actuelle = timezone.now().time()
                             if date_commande == timezone.now().date() and heure_actuelle > heure_limite_public:
                                 erreurs_fenetre.append(
                                     f"Fenêtre de commande fermée pour {menu_plat.plat.nom}. "
-                                    f"Heure limite: 13:00 GMT"
+                                    f"Heure limite: 18:00 GMT"
                                 )
                 except MenuPlat.DoesNotExist:
                     pass
@@ -1464,12 +1523,12 @@ class CommandeViewSet(viewsets.ModelViewSet):
                     else:
                         # Si pas de fenêtre configurée, appliquer la limite par défaut de 13h00 GMT
                         from datetime import time
-                        heure_limite_public = time(13, 0, 0)
+                        heure_limite_public = time(18, 0, 0)
                         heure_actuelle = timezone.now().time()
                         if commande.date_commande == timezone.now().date() and heure_actuelle > heure_limite_public:
                             erreurs_fenetre.append(
                                 f"Fenêtre de commande fermée pour {ligne.menu_plat.plat.nom}. "
-                                f"Heure limite: 13:00 GMT"
+                                f"Heure limite: 18:00 GMT"
                             )
             
             if erreurs_fenetre:
@@ -1715,8 +1774,8 @@ def commander_public(request, token):
         except Menu.DoesNotExist:
             return Response({'error': 'Menu non trouvé ou non publié'}, status=404)
     
-    # Vérifier la restriction horaire pour les commandes publiques (13h00 GMT)
-    heure_limite_public = time(13, 0, 0)
+    # Vérifier la restriction horaire pour les commandes publiques (18h00 GMT)
+    heure_limite_public = time(18, 0, 0)
     heure_actuelle = timezone.now().time()
     
     # Si la date de commande est aujourd'hui, vérifier l'heure
@@ -1724,8 +1783,8 @@ def commander_public(request, token):
         if heure_actuelle > heure_limite_public:
             return Response({
                 'error': 'Les commandes publiques sont fermées',
-                'message': 'Les commandes publiques ne sont acceptées que jusqu\'à 13h00 GMT (heure de Conakry)',
-                'heure_limite': '13:00',
+                'message': 'Les commandes publiques ne sont acceptées que jusqu\'à 18h00 GMT (heure de Conakry)',
+                'heure_limite': '18:00',
                 'heure_actuelle': heure_actuelle.strftime('%H:%M:%S')
             }, status=403)
     
@@ -1771,11 +1830,16 @@ def commander_public(request, token):
             )
             
             # Créer la commande (plusieurs personnes peuvent commander le même jour)
+            # Les commandes publiques sont en brouillon, le gestionnaire doit valider
             commande = Commande.objects.create(
                 utilisateur=user_anonyme,
                 date_commande=menu.date_menu,
-                etat='brouillon'
+                etat='brouillon'  # En attente de validation par le gestionnaire
             )
+            
+            # Variables pour calculer le supplément
+            total_supplement = Decimal('0.00')
+            plats_avec_supplement = []
             
             # Créer les lignes
             for ligne_data in lignes_data:
@@ -1790,12 +1854,23 @@ def commander_public(request, token):
                     if stock_restant is not None and quantite > stock_restant:
                         raise ValueError(f"Stock insuffisant pour {menu_plat.plat.nom}")
                     
-                    CommandeLigne.objects.create(
+                    ligne = CommandeLigne.objects.create(
                         commande=commande,
                         menu_plat=menu_plat,
                         quantite=quantite,
                         prix_unitaire=menu_plat.prix_jour
                     )
+                    
+                    # Calculer le supplément si le prix dépasse 30 000 GNF
+                    if menu_plat.prix_jour > 30000:
+                        supplement = (menu_plat.prix_jour - Decimal('30000.00')) * quantite
+                        total_supplement += supplement
+                        plats_avec_supplement.append({
+                            'plat': menu_plat.plat.nom,
+                            'prix_reel': float(menu_plat.prix_jour),
+                            'supplement': float(supplement)
+                        })
+                        
                 except MenuPlat.DoesNotExist:
                     raise ValueError(f"MenuPlat {menu_plat_id} non trouvé")
             
@@ -1803,15 +1878,26 @@ def commander_public(request, token):
             commande.calculer_montants()
             commande.save()
             
-            # Générer automatiquement la facture pour ce jour (si commande validée)
-            if commande.etat == 'validee':
-                try:
-                    generer_facture_journaliere(commande.date_commande)
-                except Exception as e:
-                    print(f"Erreur lors de la génération de la facture: {e}")
+            # Générer automatiquement la facture pour ce jour
+            try:
+                generer_facture_journaliere(commande.date_commande)
+            except Exception as e:
+                print(f"Erreur lors de la génération de la facture: {e}")
             
+            # L'email sera envoyé quand le gestionnaire validera la commande
+            # Pas d'envoi automatique à la création
+            
+            # Préparer la réponse avec les informations sur le supplément
             serializer = CommandeSerializer(commande)
-            return Response(serializer.data, status=201)
+            response_data = serializer.data
+            response_data['supplement_info'] = {
+                'total_supplement': float(total_supplement),
+                'plats_avec_supplement': plats_avec_supplement,
+                'message_supplement': f"Vous devez payer un supplément de {total_supplement:,.0f} GNF en espèces" if total_supplement > 0 else None
+            }
+            response_data['en_attente_validation'] = True
+            
+            return Response(response_data, status=201)
     
     except ValueError as e:
         return Response({'error': str(e)}, status=400)
@@ -2215,7 +2301,7 @@ def imprimer_facture(request, date_str):
 
 def envoyer_email_confirmation(commande):
     """Envoie un email de confirmation lorsqu'une commande est validée"""
-    print(f"📧 Tentative d'envoi d'email pour la commande #{commande.id}")
+    print(f"[EMAIL] Tentative d'envoi d'email pour la commande #{commande.id}")
     
     # Récupérer l'email de l'utilisateur
     email_destinataire = None
@@ -2226,27 +2312,22 @@ def envoyer_email_confirmation(commande):
         # Pour les commandes publiques, le nom est dans first_name
         nom_employe = commande.utilisateur.first_name or commande.utilisateur.username
         print(f"   Utilisateur: {commande.utilisateur.username}")
-        print(f"   Email trouvé: {email_destinataire}")
+        print(f"   Email trouve: {email_destinataire}")
         
-        # Si l'email est un email généré (commande publique), utiliser l'email fourni
+        # Si l'email est un email généré (commande publique), ne pas envoyer
         if email_destinataire and '@commande.local' in email_destinataire:
-            # Pour les commandes publiques, l'email réel devrait être dans l'email du User
-            # mais si c'est un email généré, on ne peut pas envoyer
-            # On vérifie si l'email semble valide
-            if '@commande.local' in email_destinataire:
-                # Ne pas envoyer d'email si c'est un email généré
-                print(f"   ⚠️ Email généré détecté, pas d'envoi")
-                return {'error': 'Email généré (@commande.local), pas d\'envoi possible', 'email': email_destinataire}
+            print(f"   [INFO] Email non fourni par l'utilisateur, pas d'envoi")
+            return {'success': False, 'error': 'Email non fourni', 'email': None}
     else:
-        print(f"   ⚠️ Aucun utilisateur associé à la commande")
-        return {'error': 'Aucun utilisateur associé à la commande', 'email': None}
+        print(f"   [INFO] Aucun utilisateur associe a la commande")
+        return {'success': False, 'error': 'Aucun utilisateur associé à la commande', 'email': None}
     
     # Si pas d'email valide, ne pas envoyer
     if not email_destinataire or not email_destinataire.strip() or '@' not in email_destinataire:
-        print(f"   ⚠️ Email invalide ou manquant: {email_destinataire}")
-        return {'error': 'Aucun email valide trouvé', 'email': email_destinataire or 'N/A'}
+        print(f"   [INFO] Email invalide ou manquant: {email_destinataire}")
+        return {'success': False, 'error': 'Aucun email valide trouve', 'email': email_destinataire or 'N/A'}
     
-    print(f"   ✅ Email valide: {email_destinataire}")
+    print(f"   [OK] Email valide: {email_destinataire}")
     
     # Préparer les données pour le template
     lignes = []
@@ -2312,7 +2393,7 @@ def envoyer_email_confirmation(commande):
     print(f"      From: {settings.DEFAULT_FROM_EMAIL or 'support@csig.edu.gn'}")
     
     try:
-        print(f"   📤 Envoi de l'email en cours...")
+        print(f"   [ENVOI] Envoi de l'email en cours...")
         send_mail(
             subject=f'Confirmation de commande #{commande.id} - CSIG',
             message=plain_message,
@@ -2321,13 +2402,13 @@ def envoyer_email_confirmation(commande):
             html_message=html_message,
             fail_silently=False,
         )
-        print(f"   ✅ Email envoyé avec succès à {email_destinataire}")
+        print(f"   [OK] Email envoye avec succes a {email_destinataire}")
         return {'success': True, 'email': email_destinataire}
     except Exception as e:
         import traceback
         error_msg = f"Erreur SMTP: {str(e)}"
-        print(f"   ❌ ERREUR: {error_msg}")
-        print(f"   Détails:")
+        print(f"   [ERREUR] {error_msg}")
+        print(f"   Details:")
         print(traceback.format_exc())
-        return {'error': error_msg, 'email': email_destinataire}
+        return {'success': False, 'error': error_msg, 'email': email_destinataire}
 

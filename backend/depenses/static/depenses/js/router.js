@@ -23,6 +23,20 @@ class Router {
       requiresAuth,
       regex: this.pathToRegex(path),
       keys: this.extractKeys(path),
+      isWildcard: false,
+    });
+  }
+
+  /**
+   * Ajouter une route wildcard qui capture tout après le préfixe
+   */
+  addRouteWildcard(prefix, handler, requiresAuth = false) {
+    this.routes.push({
+      path: prefix,
+      handler,
+      requiresAuth,
+      prefix: prefix,
+      isWildcard: true,
     });
   }
 
@@ -73,10 +87,36 @@ class Router {
    * Gérer la route actuelle
    */
   async handleRoute() {
-    const pathname = window.location.pathname;
+    // Normaliser le pathname en retirant le slash final
+    let pathname = window.location.pathname;
+    if (pathname.length > 1 && pathname.endsWith('/')) {
+      pathname = pathname.slice(0, -1);
+    }
     
     // Trouver la route correspondante
     for (const route of this.routes) {
+      // Gérer les routes wildcard
+      if (route.isWildcard) {
+        const prefixWithoutSlash = route.prefix.endsWith('/') ? route.prefix.slice(0, -1) : route.prefix;
+        if (pathname.startsWith(prefixWithoutSlash + '/') || pathname === prefixWithoutSlash) {
+          const wildcardValue = pathname.substring(prefixWithoutSlash.length + 1) || '';
+          
+          // Vérifier l'authentification si nécessaire
+          if (route.requiresAuth) {
+            const { authService } = await import('/static/depenses/js/services/auth.js');
+            if (!authService.isAuthenticated()) {
+              this.navigate('/login');
+              return;
+            }
+          }
+          
+          this.currentRoute = { route, params: { wildcard: wildcardValue }, pathname };
+          await route.handler(wildcardValue);
+          return;
+        }
+        continue;
+      }
+      
       if (route.regex.test(pathname)) {
         const params = this.getParams(route, pathname);
         

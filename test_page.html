@@ -1,0 +1,35 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Dépenses - CSIG</title>
+    
+    <link rel="stylesheet" href="/static/depenses/css/styles.css">
+    <link rel="stylesheet" href="/static/depenses/css/layout.css">
+    <link rel="stylesheet" href="/static/depenses/css/login.css">
+</head>
+<body>
+    <!-- Container principal pour le routing -->
+    <div id="app"></div>
+    
+    <!-- Toast notifications container -->
+    <div id="toast-container"></div>
+    
+    <!-- Configuration Django -->
+    <script>
+        window.DJANGO_USER = {
+            username: '',
+            isAuthenticated: false
+        };
+        window.DJANGO_CSRF_TOKEN = '5FPJtammKB65DuIolWfZQm2vjbTYXJ1uoqGR7ILJUWvrYf1YevKM1qnuRxK5NQy9';
+        window.API_BASE_URL = '';
+    </script>
+    
+    <!-- Scripts vanilla JS - Charger le main.js qui importe les autres modules -->
+    
+    <script type="module" src="/static/depenses/js/main.js"></script>
+</body>
+</html>
+
+

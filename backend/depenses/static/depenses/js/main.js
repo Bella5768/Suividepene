@@ -185,12 +185,12 @@ async function init() {
     }
   }, true);
 
-  // Routes publiques
-  router.addRoute('/commander/:token', async (params) => {
+  // Routes publiques - capturer tout ce qui suit /commander/
+  router.addRouteWildcard('/commander/', async (token) => {
     const mainContent = document.getElementById('app');
     if (mainContent) {
       mainContent.innerHTML = '';
-      await renderCommanderPublic(params.token);
+      await renderCommanderPublic(token);
     }
   }, false);
 
