@@ -21,9 +21,9 @@ export async function renderCommanderPublic(token) {
   app.innerHTML = `
     <div class="commander-public" style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
       <div style="text-align: center; margin-bottom: 2rem;">
-        <h1 style="color: #124684; font-size: 2.5rem; margin-bottom: 0.5rem;">🍽️ Commander votre repas</h1>
+        <h1 style="color: #124684; font-size: 2.5rem; margin-bottom: 0.5rem;">Commander votre repas</h1>
         <p style="color: #64748b; font-size: 1.1rem;">Menu du jour - ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        <p style="color: #124684; font-weight: bold; margin-top: 0.5rem;">⏰ Commandes jusqu'à 18h00 GMT</p>
+        <p style="color: #124684; font-weight: bold; margin-top: 0.5rem;">Commandes jusqu'a 18h00 GMT</p>
       </div>
       <div id="commander-public-content">
         <div class="loading"><div class="spinner"></div></div>
@@ -50,8 +50,8 @@ async function loadMenuDuJour() {
     if (menuDuJour.length === 0) {
       content.innerHTML = `
         <div class="card" style="text-align: center; padding: 3rem;">
-          <h2 style="color: #64748b;">😔 Aucun menu disponible aujourd'hui</h2>
-          <p style="color: #94a3b8; margin-top: 1rem;">Revenez demain pour découvrir notre menu !</p>
+          <h2 style="color: #64748b;">Aucun menu disponible aujourd'hui</h2>
+          <p style="color: #94a3b8; margin-top: 1rem;">Revenez demain pour decouvrir notre menu !</p>
         </div>
       `;
       return;
@@ -75,6 +75,20 @@ function renderMenu() {
 
   const totalPanier = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
   
+  // Calculer le supplement total (montant au-dela de 30000 GNF par plat)
+  const totalSupplement = panier.reduce((sum, item) => {
+    if (item.prix > 30000) {
+      return sum + ((item.prix - 30000) * item.quantite);
+    }
+    return sum;
+  }, 0);
+  
+  // Calculer la subvention totale (max 30000 par plat)
+  const totalSubvention = panier.reduce((sum, item) => {
+    const prixSubventionne = Math.min(item.prix, 30000);
+    return sum + (prixSubventionne * item.quantite);
+  }, 0);
+  
   // Extraire tous les plats de tous les menus
   const tousLesPlats = [];
   menuDuJour.forEach(menu => {
@@ -95,7 +109,7 @@ function renderMenu() {
     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
       <!-- Menu du jour -->
       <div>
-        <h2 style="color: #124684; margin-bottom: 1.5rem;">📋 Plats disponibles</h2>
+        <h2 style="color: #124684; margin-bottom: 1.5rem;">Plats disponibles</h2>
         <div style="display: grid; gap: 1rem;">
           ${tousLesPlats.length === 0 ? `
             <div class="card" style="padding: 2rem; text-align: center;">
@@ -113,8 +127,8 @@ function renderMenu() {
                   ${plat.stock_restant !== null ? `<span style="margin-left: 0.5rem; color: ${plat.stock_restant > 0 ? '#10b981' : '#ef4444'}; font-size: 0.85rem;">Stock: ${plat.stock_restant}</span>` : ''}
                   ${aSupplementPayer ? `
                     <div style="margin-top: 0.5rem; padding: 0.5rem; background: #fef3c7; border-radius: 6px; border-left: 3px solid #f59e0b;">
-                      <span style="color: #92400e; font-size: 0.85rem; font-weight: bold;">⚠️ Supplément à payer: ${formatGNF(supplement)}</span>
-                      <br><span style="color: #92400e; font-size: 0.75rem;">Subventionné: 30 000 GNF | Vous payez: ${formatGNF(supplement)} en espèces</span>
+                      <span style="color: #92400e; font-size: 0.85rem; font-weight: bold;">Supplement a payer: ${formatGNF(supplement)}</span>
+                      <br><span style="color: #92400e; font-size: 0.75rem;">Subventionne: 30 000 GNF | Vous payez: ${formatGNF(supplement)} en especes</span>
                     </div>
                   ` : ''}
                 </div>
@@ -129,7 +143,7 @@ function renderMenu() {
                     style="background: #124684; border: none; padding: 0.75rem 1.5rem; font-weight: bold; border-radius: 6px;"
                     ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
                   >
-                    ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'Épuisé' : '➕ Ajouter'}
+                    ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'Epuise' : 'Ajouter'}
                   </button>
                 </div>
               </div>
@@ -141,7 +155,7 @@ function renderMenu() {
       <!-- Panier -->
       <div>
         <div class="card" style="position: sticky; top: 2rem; background: #124684; color: white;">
-          <h2 style="color: white; margin-bottom: 1.5rem;">🛒 Votre commande</h2>
+          <h2 style="color: white; margin-bottom: 1.5rem;">Votre commande</h2>
           
           ${panier.length === 0 ? `
             <p style="color: rgba(255,255,255,0.8); text-align: center; padding: 2rem;">
@@ -160,7 +174,7 @@ function renderMenu() {
                       <button onclick="window.modifierQuantite(${index}, -1)" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold;">-</button>
                       <span style="font-weight: bold;">${item.quantite}</span>
                       <button onclick="window.modifierQuantite(${index}, 1)" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold;">+</button>
-                      <button onclick="window.retirerDuPanier(${index})" style="background: #ef4444; border: none; color: white; padding: 0.5rem; border-radius: 6px; cursor: pointer; margin-left: 0.5rem;">🗑️</button>
+                      <button onclick="window.retirerDuPanier(${index})" style="background: #ef4444; border: none; color: white; padding: 0.5rem; border-radius: 6px; cursor: pointer; margin-left: 0.5rem;">X</button>
                     </div>
                   </div>
                 </div>
@@ -168,10 +182,20 @@ function renderMenu() {
             </div>
             
             <div style="border-top: 2px solid rgba(255,255,255,0.3); padding-top: 1rem; margin-bottom: 1.5rem;">
-              <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: bold;">
-                <span>Total:</span>
+              <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem;">
+                <span>Prix total:</span>
                 <span>${formatGNF(totalPanier)}</span>
               </div>
+              <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem; color: #10b981;">
+                <span>Subvention (max 30k/plat):</span>
+                <span>${formatGNF(totalSubvention)}</span>
+              </div>
+              ${totalSupplement > 0 ? `
+              <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem; background: #fef3c7; color: #92400e; padding: 0.5rem; border-radius: 6px;">
+                <span>Supplement a payer:</span>
+                <span style="font-weight: bold;">${formatGNF(totalSupplement)}</span>
+              </div>
+              ` : ''}
             </div>
             
             <div style="margin-bottom: 1rem;">
@@ -200,7 +224,7 @@ function renderMenu() {
               class="btn" 
               style="width: 100%; background: white; color: #124684; font-weight: bold; font-size: 1.1rem; padding: 1rem; border: none; border-radius: 6px;"
             >
-              ✅ Valider ma commande
+              Valider ma commande
             </button>
           `}
         </div>
@@ -213,15 +237,14 @@ function renderMenu() {
 window.ajouterAuPanier = function(menuPlatId, nom, prix) {
   const existant = panier.find(item => item.menuPlatId === menuPlatId);
   if (existant) {
-    // Une seule quantité autorisée par plat
-    toast.warning('Vous ne pouvez commander qu\'un seul plat');
-    return;
+    // Augmenter la quantite si deja dans le panier
+    existant.quantite += 1;
   } else {
-    // Vider le panier et ajouter le nouveau plat (un seul plat autorisé)
-    panier = [{ menuPlatId, nom, prix, quantite: 1 }];
+    // Ajouter le nouveau plat au panier (plusieurs plats autorises)
+    panier.push({ menuPlatId, nom, prix, quantite: 1 });
   }
   renderMenu();
-  toast.success(`${nom} ajouté au panier`);
+  toast.success(`${nom} ajoute au panier`);
 };
 
 window.modifierQuantite = function(index, delta) {
@@ -269,15 +292,15 @@ window.validerCommande = async function() {
       : '/api/restauration/public/commander/aujourdhui/';
     const response = await apiService.post(commandeEndpoint, commandeData);
     
-    toast.success('✅ Commande enregistrée !');
+    toast.success('Commande enregistree !');
     
-    // Récupérer les informations de supplément
+    // Recuperer les informations de supplement
     const supplementInfo = response.supplement_info || {};
-    const totalSupplement = supplementInfo.total_supplement || 0;
+    const totalSupplementConfirm = supplementInfo.total_supplement || 0;
     const nomSauvegarde = utilisateurNom;
     const emailFourni = document.getElementById('utilisateur-email')?.value.trim();
     
-    // Réinitialiser
+    // Reinitialiser
     panier = [];
     utilisateurNom = '';
     
@@ -285,38 +308,37 @@ window.validerCommande = async function() {
     const content = document.getElementById('commander-public-content');
     content.innerHTML = `
       <div class="card" style="text-align: center; padding: 3rem; background: #124684; color: white;">
-        <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
-        <h2 style="color: white; font-size: 2rem; margin-bottom: 1rem;">Commande enregistrée !</h2>
+        <h2 style="color: white; font-size: 2rem; margin-bottom: 1rem;">Commande enregistree !</h2>
         <p style="color: rgba(255,255,255,0.9); font-size: 1.1rem; margin-bottom: 1rem;">
-          Merci <strong>${nomSauvegarde}</strong>, votre commande a été enregistrée.
+          Merci <strong>${nomSauvegarde}</strong>, votre commande a ete enregistree.
         </p>
-        ${totalSupplement > 0 ? `
+        ${totalSupplementConfirm > 0 ? `
           <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
             <p style="color: rgba(255,255,255,0.9); font-size: 1rem;">
-              ⏳ <strong>En attente de validation</strong> par le gestionnaire.
+              <strong>En attente de validation</strong> par le gestionnaire.
             </p>
             ${emailFourni ? `
               <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-top: 0.5rem;">
-                📧 Vous recevrez un email de confirmation à <strong>${emailFourni}</strong> une fois validée.
+                Vous recevrez un email de confirmation a <strong>${emailFourni}</strong> une fois validee.
               </p>
             ` : ''}
           </div>
           <div style="background: #fef3c7; color: #92400e; padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; text-align: left;">
-            <h3 style="color: #92400e; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-              ⚠️ Supplément à payer
+            <h3 style="color: #92400e; margin-bottom: 0.5rem;">
+              Supplement a payer
             </h3>
             <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">
-              Vous devrez payer <strong>${formatGNF(totalSupplement)}</strong> en espèces.
+              Vous devrez payer <strong>${formatGNF(totalSupplementConfirm)}</strong> en especes.
             </p>
             <p style="font-size: 0.9rem; color: #a16207;">
-              Ce montant correspond à la différence entre le prix du plat et la subvention de 30 000 GNF.
+              Ce montant correspond a la difference entre le prix du plat et la subvention de 30 000 GNF.
             </p>
           </div>
         ` : `
           ${emailFourni ? `
             <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
               <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
-                📧 Un email de confirmation sera envoyé à <strong>${emailFourni}</strong>.
+                Un email de confirmation sera envoye a <strong>${emailFourni}</strong>.
               </p>
             </div>
           ` : ''}
@@ -326,7 +348,7 @@ window.validerCommande = async function() {
           class="btn" 
           style="background: white; color: #124684; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1.1rem; margin-top: 1rem; border-radius: 6px;"
         >
-          🔄 Nouvelle commande
+          Nouvelle commande
         </button>
       </div>
     `;
