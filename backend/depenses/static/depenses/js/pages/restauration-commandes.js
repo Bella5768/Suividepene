@@ -85,13 +85,17 @@ function renderCommandesTable() {
     return;
   }
 
-  const totalBrut = commandes.reduce((sum, c) => sum + parseFloat(c.montant_brut || 0), 0);
-  const totalNet = commandes.reduce((sum, c) => sum + parseFloat(c.montant_net || 0), 0);
+  const totalPrixReel = commandes.reduce((sum, c) => sum + parseFloat(c.prix_reel_total || 0), 0);
+  const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.montant_subvention || 0), 0);
+  const totalSupplement = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
 
   content.innerHTML = `
     <div class="card">
-      <div class="table-header">
-        <span>${commandes.length} commande(s) - Total brut: ${formatGNF(totalBrut)} | Net: ${formatGNF(totalNet)}</span>
+      <div class="table-header" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <span><strong>${commandes.length}</strong> commande(s)</span>
+        <span>Prix réel: <strong>${formatGNF(totalPrixReel)}</strong></span>
+        <span>Subvention (max 30k): <strong style="color: #10b981;">${formatGNF(totalSubvention)}</strong></span>
+        <span>Supplément: <strong style="color: #f59e0b;">${formatGNF(totalSupplement)}</strong></span>
       </div>
       <div class="table-responsive">
         <table class="table">
@@ -99,21 +103,25 @@ function renderCommandesTable() {
             <tr>
               <th>Utilisateur</th>
               <th>Plats</th>
-              <th>Montant brut</th>
-              <th>Subvention</th>
-              <th>Montant net</th>
+              <th>Prix réel</th>
+              <th>Subvention (max 30k)</th>
+              <th>Supplément</th>
               <th>État</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${commandes.map(cmd => `
+            ${commandes.map(cmd => {
+              const prixReel = parseFloat(cmd.prix_reel_total || 0);
+              const subvention = parseFloat(cmd.montant_subvention || 0);
+              const supplement = parseFloat(cmd.supplement_total || 0);
+              return `
               <tr>
                 <td><strong>${cmd.utilisateur_nom || cmd.utilisateur}</strong></td>
                 <td>${cmd.lignes?.length || 0} plat(s)</td>
-                <td>${formatGNF(cmd.montant_brut)}</td>
-                <td>${formatGNF(cmd.montant_subvention)}</td>
-                <td><strong>${formatGNF(cmd.montant_net)}</strong></td>
+                <td>${formatGNF(prixReel)}</td>
+                <td style="color: #10b981;"><strong>${formatGNF(subvention)}</strong></td>
+                <td style="color: ${supplement > 0 ? '#f59e0b' : '#64748b'};">${supplement > 0 ? formatGNF(supplement) : '-'}</td>
                 <td>${getEtatBadge(cmd.etat)}</td>
                 <td>
                   ${cmd.etat === 'brouillon' ? `<button class="btn btn-sm btn-success" data-validate="${cmd.id}">Valider</button>` : ''}
@@ -121,7 +129,7 @@ function renderCommandesTable() {
                   ${cmd.etat !== 'livree' ? `<button class="btn btn-sm btn-danger" data-cancel="${cmd.id}">Annuler</button>` : ''}
                 </td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       </div>

@@ -259,15 +259,34 @@ class CommandeSerializer(serializers.ModelSerializer):
     utilisateur_username = serializers.CharField(source='utilisateur.username', read_only=True)
     utilisateur_nom = serializers.SerializerMethodField()
     etat_display = serializers.CharField(source='get_etat_display', read_only=True)
+    prix_reel_total = serializers.SerializerMethodField()
+    supplement_total = serializers.SerializerMethodField()
     
     class Meta:
         model = Commande
         fields = [
             'id', 'utilisateur', 'utilisateur_username', 'utilisateur_nom', 'date_commande', 'etat', 'etat_display',
             'montant_brut', 'montant_subvention', 'montant_net',
+            'prix_reel_total', 'supplement_total',
             'operation', 'lignes', 'created_at', 'updated_at'
         ]
         read_only_fields = ['utilisateur', 'montant_brut', 'montant_subvention', 'montant_net', 'operation']
+    
+    def get_prix_reel_total(self, obj):
+        """Retourne le prix réel total des plats (sans plafond)"""
+        total = 0
+        for ligne in obj.lignes.all():
+            total += float(ligne.prix_unitaire) * ligne.quantite
+        return total
+    
+    def get_supplement_total(self, obj):
+        """Retourne le supplément total (montant au-delà de 30 000 GNF par plat)"""
+        total = 0
+        for ligne in obj.lignes.all():
+            prix = float(ligne.prix_unitaire)
+            if prix > 30000:
+                total += (prix - 30000) * ligne.quantite
+        return total
     
     def get_utilisateur_nom(self, obj):
         """Retourne le nom de l'utilisateur (first_name ou username)"""
