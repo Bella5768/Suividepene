@@ -281,26 +281,26 @@ window.validerCommande = async function() {
     panier = [];
     utilisateurNom = '';
     
-    // Afficher message de confirmation - en attente de validation
+    // Afficher message de confirmation
     const content = document.getElementById('commander-public-content');
     content.innerHTML = `
       <div class="card" style="text-align: center; padding: 3rem; background: #124684; color: white;">
-        <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+        <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
         <h2 style="color: white; font-size: 2rem; margin-bottom: 1rem;">Commande enregistrée !</h2>
         <p style="color: rgba(255,255,255,0.9); font-size: 1.1rem; margin-bottom: 1rem;">
           Merci <strong>${nomSauvegarde}</strong>, votre commande a été enregistrée.
         </p>
-        <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-          <p style="color: rgba(255,255,255,0.9); font-size: 1rem;">
-            ⏳ <strong>En attente de validation</strong> par le gestionnaire.
-          </p>
-          ${emailFourni ? `
-            <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-top: 0.5rem;">
-              📧 Vous recevrez un email de confirmation à <strong>${emailFourni}</strong> une fois validée.
-            </p>
-          ` : ''}
-        </div>
         ${totalSupplement > 0 ? `
+          <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+            <p style="color: rgba(255,255,255,0.9); font-size: 1rem;">
+              ⏳ <strong>En attente de validation</strong> par le gestionnaire.
+            </p>
+            ${emailFourni ? `
+              <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-top: 0.5rem;">
+                📧 Vous recevrez un email de confirmation à <strong>${emailFourni}</strong> une fois validée.
+              </p>
+            ` : ''}
+          </div>
           <div style="background: #fef3c7; color: #92400e; padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; text-align: left;">
             <h3 style="color: #92400e; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
               ⚠️ Supplément à payer
@@ -312,7 +312,15 @@ window.validerCommande = async function() {
               Ce montant correspond à la différence entre le prix du plat et la subvention de 30 000 GNF.
             </p>
           </div>
-        ` : ''}
+        ` : `
+          ${emailFourni ? `
+            <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+              <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
+                📧 Un email de confirmation sera envoyé à <strong>${emailFourni}</strong>.
+              </p>
+            </div>
+          ` : ''}
+        `}
         <button 
           onclick="location.reload()" 
           class="btn" 
