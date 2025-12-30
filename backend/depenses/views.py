@@ -1799,15 +1799,6 @@ def commander_public(request, token):
     if not lignes_data:
         return Response({'error': 'Aucune ligne de commande'}, status=400)
     
-    # Limiter à un seul plat par commande
-    if len(lignes_data) > 1:
-        return Response({'error': 'Vous ne pouvez commander qu\'un seul plat par commande'}, status=400)
-    
-    # Vérifier que la quantité totale est de 1
-    quantite_totale = sum(int(ligne.get('quantite', 1)) for ligne in lignes_data)
-    if quantite_totale > 1:
-        return Response({'error': 'Vous ne pouvez commander qu\'un seul plat (quantité = 1)'}, status=400)
-    
     try:
         with transaction.atomic():
             # Créer un utilisateur unique pour chaque commande (basé sur nom + email + date + timestamp)
