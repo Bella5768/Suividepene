@@ -261,13 +261,14 @@ class CommandeSerializer(serializers.ModelSerializer):
     etat_display = serializers.CharField(source='get_etat_display', read_only=True)
     prix_reel_total = serializers.SerializerMethodField()
     supplement_total = serializers.SerializerMethodField()
+    subvention_calculee = serializers.SerializerMethodField()
     
     class Meta:
         model = Commande
         fields = [
             'id', 'utilisateur', 'utilisateur_username', 'utilisateur_nom', 'date_commande', 'etat', 'etat_display',
             'montant_brut', 'montant_subvention', 'montant_net',
-            'prix_reel_total', 'supplement_total',
+            'prix_reel_total', 'supplement_total', 'subvention_calculee',
             'operation', 'lignes', 'created_at', 'updated_at'
         ]
         read_only_fields = ['utilisateur', 'montant_brut', 'montant_subvention', 'montant_net', 'operation']
@@ -279,14 +280,32 @@ class CommandeSerializer(serializers.ModelSerializer):
             total += float(ligne.prix_unitaire) * ligne.quantite
         return total
     
+    def get_subvention_calculee(self, obj):
+        """Retourne la subvention (30000 GNF max sur le 1er plat uniquement)"""
+        lignes = list(obj.lignes.all())
+        if not lignes:
+            return 0
+        # Subvention sur le premier plat uniquement
+        premier_prix = float(lignes[0].prix_unitaire) if lignes else 0
+        return min(premier_prix, 30000)
+    
     def get_supplement_total(self, obj):
-        """Retourne le supplément total (montant au-delà de 30 000 GNF par plat)"""
-        total = 0
+        """Retourne le montant a payer (subvention 30000 GNF uniquement sur le 1er plat)"""
+        total_a_payer = 0
+        subvention_utilisee = False
+        
         for ligne in obj.lignes.all():
             prix = float(ligne.prix_unitaire)
-            if prix > 30000:
-                total += (prix - 30000) * ligne.quantite
-        return total
+            for i in range(ligne.quantite):
+                if not subvention_utilisee:
+                    # Premier plat: subvention de max 30000 GNF
+                    subvention = min(prix, 30000)
+                    total_a_payer += prix - subvention
+                    subvention_utilisee = True
+                else:
+                    # Autres plats: prix complet
+                    total_a_payer += prix
+        return total_a_payer
     
     def get_utilisateur_nom(self, obj):
         """Retourne le nom de l'utilisateur (first_name ou username)"""

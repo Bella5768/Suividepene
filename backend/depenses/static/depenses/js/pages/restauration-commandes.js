@@ -101,16 +101,16 @@ function renderCommandesTable() {
   }
 
   const totalPrixReel = commandes.reduce((sum, c) => sum + parseFloat(c.prix_reel_total || 0), 0);
-  const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.montant_subvention || 0), 0);
-  const totalSupplement = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
+  const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.subvention_calculee || 0), 0);
+  const totalAPayer = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
 
   content.innerHTML = `
     <div class="card">
       <div class="table-header" style="display: flex; flex-wrap: wrap; gap: 1rem;">
         <span><strong>${commandes.length}</strong> commande(s)</span>
-        <span>Prix réel: <strong>${formatGNF(totalPrixReel)}</strong></span>
-        <span>Subvention (max 30k): <strong style="color: #10b981;">${formatGNF(totalSubvention)}</strong></span>
-        <span>Supplément: <strong style="color: #f59e0b;">${formatGNF(totalSupplement)}</strong></span>
+        <span>Prix total: <strong>${formatGNF(totalPrixReel)}</strong></span>
+        <span>Subvention: <strong style="color: #10b981;">-${formatGNF(totalSubvention)}</strong></span>
+        <span>A payer: <strong style="color: #f59e0b;">${formatGNF(totalAPayer)}</strong></span>
       </div>
       <div class="table-responsive">
         <table class="table">
@@ -118,9 +118,9 @@ function renderCommandesTable() {
             <tr>
               <th>Utilisateur</th>
               <th>Plats</th>
-              <th>Prix réel</th>
-              <th>Subvention (max 30k)</th>
-              <th>Supplément</th>
+              <th>Prix</th>
+              <th>Subvention</th>
+              <th>A payer</th>
               <th>État</th>
               <th>Actions</th>
             </tr>
@@ -128,15 +128,15 @@ function renderCommandesTable() {
           <tbody>
             ${commandes.map(cmd => {
               const prixReel = parseFloat(cmd.prix_reel_total || 0);
-              const subvention = parseFloat(cmd.montant_subvention || 0);
-              const supplement = parseFloat(cmd.supplement_total || 0);
+              const subvention = parseFloat(cmd.subvention_calculee || 0);
+              const aPayer = parseFloat(cmd.supplement_total || 0);
               return `
               <tr>
                 <td><strong>${cmd.utilisateur_nom || cmd.utilisateur}</strong></td>
                 <td>${cmd.lignes?.length || 0} plat(s)</td>
                 <td>${formatGNF(prixReel)}</td>
-                <td style="color: #10b981;"><strong>${formatGNF(subvention)}</strong></td>
-                <td style="color: ${supplement > 0 ? '#f59e0b' : '#64748b'};">${supplement > 0 ? formatGNF(supplement) : '-'}</td>
+                <td style="color: #10b981;"><strong>-${formatGNF(subvention)}</strong></td>
+                <td style="color: ${aPayer > 0 ? '#f59e0b' : '#64748b'};">${aPayer > 0 ? formatGNF(aPayer) : '-'}</td>
                 <td>${getEtatBadge(cmd.etat)}</td>
                 <td>
                   ${cmd.etat === 'brouillon' ? `<button class="btn btn-sm btn-success" data-validate="${cmd.id}">Valider</button>` : ''}
