@@ -21,6 +21,7 @@ export async function renderCommanderPublic(token) {
   app.innerHTML = `
     <div class="commander-public" style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
       <div style="text-align: center; margin-bottom: 2rem;">
+        <img src="/static/depenses/assets/logocsig.png" alt="CSIG" style="height: 80px; margin-bottom: 1rem;" />
         <h1 style="color: #124684; font-size: 2.5rem; margin-bottom: 0.5rem;">Commander votre repas</h1>
         <p style="color: #64748b; font-size: 1.1rem;">Menu du jour - ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <p style="color: #124684; font-weight: bold; margin-top: 0.5rem;">Commandes jusqu'a 18h00 GMT</p>
