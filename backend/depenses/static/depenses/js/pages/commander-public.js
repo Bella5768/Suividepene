@@ -56,7 +56,14 @@ async function loadMenuDuJour() {
     const endpoint = currentToken 
       ? `/api/restauration/public/menu/${currentToken}/`
       : '/api/restauration/public/menu/aujourdhui/';
-    const data = await apiService.get(endpoint);
+    
+    // Appel direct sans authentification pour les endpoints publics
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw { response: { data: errorData }, message: errorData.error || 'Erreur serveur' };
+    }
+    const data = await response.json();
     // L'endpoint public retourne un seul menu, pas un tableau
     menuDuJour = data ? [data] : [];
     
@@ -319,7 +326,18 @@ window.validerCommande = async function() {
     const commandeEndpoint = currentToken 
       ? `/api/restauration/public/commander/${currentToken}/`
       : '/api/restauration/public/commander/aujourdhui/';
-    const response = await apiService.post(commandeEndpoint, commandeData);
+    
+    // Appel direct sans authentification pour les endpoints publics
+    const fetchResponse = await fetch(commandeEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(commandeData)
+    });
+    if (!fetchResponse.ok) {
+      const errorData = await fetchResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erreur lors de la commande');
+    }
+    const response = await fetchResponse.json();
     
     toast.success('Commande enregistree !');
     
