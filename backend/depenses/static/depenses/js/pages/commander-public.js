@@ -37,6 +37,12 @@ export async function renderCommanderPublic(token) {
         <h1 style="color: #124684; margin-bottom: 0.5rem;">Commander votre repas</h1>
         <p style="color: #64748b; font-size: 1rem;">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <p style="color: #124684; font-weight: bold; margin-top: 0.5rem;">Commandes jusqu'a 12h30</p>
+        <div style="margin-top: 1rem; padding: 0.75rem; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
+          <p style="color: #0369a1; font-size: 0.9rem; margin: 0;">
+            <strong>Contact Gestionnaire:</strong> Hawa Bah - <a href="tel:+224620559464" style="color: #0369a1; text-decoration: none; font-weight: bold;">620 55 94 64</a>
+          </p>
+          <p style="color: #64748b; font-size: 0.8rem; margin: 0.25rem 0 0 0;">Pour paiement supplement ou informations</p>
+        </div>
       </div>
       <div id="commander-public-content">
         <div class="loading"><div class="spinner"></div></div>
