@@ -128,7 +128,7 @@ function renderMenusList() {
                 <td><strong>${formatDate(menu.date_menu)}</strong></td>
                 <td>${menu.menu_plats?.length || 0} plat(s)</td>
                 <td>${menu.publication_at ? '<span class="badge badge-success">Publié</span>' : '<span class="badge badge-warning">Brouillon</span>'}</td>
-                <td>${menu.token_public ? `<a href="/commander/${menu.token_public}" target="_blank" class="btn btn-sm btn-outline">Voir</a>` : '-'}</td>
+                <td>${menu.publication_at ? `<a href="/commander/" target="_blank" class="btn btn-sm btn-outline">Voir</a>` : '-'}</td>
                 <td>
                   ${!menu.publication_at ? `<button class="btn btn-sm btn-success" data-publish="${menu.id}">Publier</button>` : ''}
                   <button class="btn btn-sm btn-danger" data-delete="${menu.id}">Supprimer</button>
