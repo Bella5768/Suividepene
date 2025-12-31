@@ -1774,17 +1774,17 @@ def commander_public(request, token):
         except Menu.DoesNotExist:
             return Response({'error': 'Menu non trouvé ou non publié'}, status=404)
     
-    # Vérifier la restriction horaire pour les commandes publiques (18h00 GMT)
-    heure_limite_public = time(18, 0, 0)
+    # Vérifier la restriction horaire pour les commandes publiques (12h30 GMT)
+    heure_limite_public = time(12, 30, 0)
     heure_actuelle = timezone.now().time()
     
     # Si la date de commande est aujourd'hui, vérifier l'heure
     if menu.date_menu == timezone.now().date():
         if heure_actuelle > heure_limite_public:
             return Response({
-                'error': 'Les commandes publiques sont fermées',
-                'message': 'Les commandes publiques ne sont acceptées que jusqu\'à 18h00 GMT (heure de Conakry)',
-                'heure_limite': '18:00',
+                'error': 'Les commandes publiques sont fermees',
+                'message': 'Les commandes publiques ne sont acceptees que jusqu\'a 12h30 GMT (heure de Conakry)',
+                'heure_limite': '12:30',
                 'heure_actuelle': heure_actuelle.strftime('%H:%M:%S')
             }, status=403)
     

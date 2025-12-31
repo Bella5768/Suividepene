@@ -19,12 +19,24 @@ export async function renderCommanderPublic(token) {
   currentToken = token || null;
 
   app.innerHTML = `
-    <div class="commander-public" style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
-      <div style="text-align: center; margin-bottom: 2rem;">
-        <img src="/static/depenses/assets/logocsig.png" alt="CSIG" style="height: 80px; margin-bottom: 1rem;" />
-        <h1 style="color: #124684; font-size: 2.5rem; margin-bottom: 0.5rem;">Commander votre repas</h1>
-        <p style="color: #64748b; font-size: 1.1rem;">Menu du jour - ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        <p style="color: #124684; font-weight: bold; margin-top: 0.5rem;">Commandes jusqu'a 18h00 GMT</p>
+    <style>
+      .commander-public { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+      .commander-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+      @media (min-width: 768px) {
+        .commander-public { padding: 2rem; }
+        .commander-grid { grid-template-columns: 2fr 1fr; gap: 2rem; }
+      }
+      .commander-header h1 { font-size: 1.5rem; }
+      @media (min-width: 768px) {
+        .commander-header h1 { font-size: 2.5rem; }
+      }
+    </style>
+    <div class="commander-public">
+      <div class="commander-header" style="text-align: center; margin-bottom: 1.5rem;">
+        <img src="/static/depenses/assets/logocsig.png" alt="CSIG" style="height: 60px; margin-bottom: 1rem;" />
+        <h1 style="color: #124684; margin-bottom: 0.5rem;">Commander votre repas</h1>
+        <p style="color: #64748b; font-size: 1rem;">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p style="color: #124684; font-weight: bold; margin-top: 0.5rem;">Commandes jusqu'a 12h30</p>
       </div>
       <div id="commander-public-content">
         <div class="loading"><div class="spinner"></div></div>
@@ -116,10 +128,10 @@ function renderMenu() {
   });
 
   content.innerHTML = `
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+    <div class="commander-grid">
       <!-- Menu du jour -->
       <div>
-        <h2 style="color: #124684; margin-bottom: 1.5rem;">Plats disponibles</h2>
+        <h2 style="color: #124684; margin-bottom: 1rem; font-size: 1.3rem;">Plats disponibles</h2>
         <div style="display: grid; gap: 1rem;">
           ${tousLesPlats.length === 0 ? `
             <div class="card" style="padding: 2rem; text-align: center;">
@@ -129,28 +141,25 @@ function renderMenu() {
             const aSupplementPayer = plat.prix > 30000;
             const supplement = aSupplementPayer ? plat.prix - 30000 : 0;
             return `
-            <div class="card" style="padding: 1.5rem; border: 2px solid ${aSupplementPayer ? '#f59e0b' : '#e5e7eb'}; transition: all 0.3s;" onmouseover="this.style.borderColor='#667eea'" onmouseout="this.style.borderColor='${aSupplementPayer ? '#f59e0b' : '#e5e7eb'}'">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;">
-                  <h3 style="color: #124684; font-size: 1.3rem; margin-bottom: 0.5rem;">${plat.nom}</h3>
-                  ${plat.categorie ? `<span style="background: #f1f5f9; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; color: #475569;">${plat.categorie}</span>` : ''}
-                  ${plat.stock_restant !== null ? `<span style="margin-left: 0.5rem; color: ${plat.stock_restant > 0 ? '#10b981' : '#ef4444'}; font-size: 0.85rem;">Stock: ${plat.stock_restant}</span>` : ''}
+            <div class="card" style="padding: 1rem; border: 2px solid ${aSupplementPayer ? '#f59e0b' : '#e5e7eb'};">
+              <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <div style="flex: 1; min-width: 150px;">
+                  <h3 style="color: #124684; font-size: 1.1rem; margin-bottom: 0.25rem;">${plat.nom}</h3>
+                  ${plat.categorie ? `<span style="background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 8px; font-size: 0.75rem; color: #475569;">${plat.categorie}</span>` : ''}
                   ${aSupplementPayer ? `
-                    <div style="margin-top: 0.5rem; padding: 0.5rem; background: #fef3c7; border-radius: 6px; border-left: 3px solid #f59e0b;">
-                      <span style="color: #92400e; font-size: 0.85rem; font-weight: bold;">Supplement a payer: ${formatGNF(supplement)}</span>
-                      <br><span style="color: #92400e; font-size: 0.75rem;">Subventionne: 30 000 GNF | Vous payez: ${formatGNF(supplement)} en especes</span>
+                    <div style="margin-top: 0.5rem; padding: 0.4rem; background: #fef3c7; border-radius: 4px; font-size: 0.75rem; color: #92400e;">
+                      Supplement: ${formatGNF(supplement)}
                     </div>
                   ` : ''}
                 </div>
-                <div style="text-align: right; margin-left: 1rem;">
-                  <div style="font-size: 1.5rem; font-weight: bold; color: #10b981; margin-bottom: 0.5rem;">
+                <div style="text-align: right;">
+                  <div style="font-size: 1.2rem; font-weight: bold; color: #10b981; margin-bottom: 0.25rem;">
                     ${formatGNF(plat.prix)}
                   </div>
-                  ${aSupplementPayer ? `<div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem;">Pris en charge: ${formatGNF(30000)}</div>` : ''}
                   <button 
                     class="btn btn-primary" 
                     onclick="window.ajouterAuPanier(${plat.id}, '${plat.nom.replace(/'/g, "\\'").replace(/"/g, '')}', ${plat.prix})"
-                    style="background: #124684; border: none; padding: 0.75rem 1.5rem; font-weight: bold; border-radius: 6px;"
+                    style="background: #124684; border: none; padding: 0.5rem 1rem; font-weight: bold; border-radius: 6px; font-size: 0.9rem;"
                     ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
                   >
                     ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'Epuise' : 'Ajouter'}
