@@ -75,19 +75,28 @@ function renderMenu() {
 
   const totalPanier = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
   
-  // Calculer le supplement total (montant au-dela de 30000 GNF par plat)
-  const totalSupplement = panier.reduce((sum, item) => {
-    if (item.prix > 30000) {
-      return sum + ((item.prix - 30000) * item.quantite);
-    }
-    return sum;
-  }, 0);
+  // Subvention de 30000 GNF uniquement sur le 1er plat (1 seule unite)
+  // Les autres plats et quantites supplementaires sont au prix complet
+  let subventionUtilisee = false;
+  let totalSubvention = 0;
+  let totalAPayer = 0;
   
-  // Calculer la subvention totale (max 30000 par plat)
-  const totalSubvention = panier.reduce((sum, item) => {
-    const prixSubventionne = Math.min(item.prix, 30000);
-    return sum + (prixSubventionne * item.quantite);
-  }, 0);
+  panier.forEach((item, index) => {
+    for (let i = 0; i < item.quantite; i++) {
+      if (!subventionUtilisee) {
+        // Premier plat: subvention de max 30000 GNF
+        const subvention = Math.min(item.prix, 30000);
+        totalSubvention += subvention;
+        totalAPayer += item.prix - subvention; // Supplement si > 30000
+        subventionUtilisee = true;
+      } else {
+        // Autres plats: prix complet a payer
+        totalAPayer += item.prix;
+      }
+    }
+  });
+  
+  const totalSupplement = totalAPayer;
   
   // Extraire tous les plats de tous les menus
   const tousLesPlats = [];
@@ -187,14 +196,17 @@ function renderMenu() {
                 <span>${formatGNF(totalPanier)}</span>
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem; color: #10b981;">
-                <span>Subvention (max 30k/plat):</span>
-                <span>${formatGNF(totalSubvention)}</span>
+                <span>Subvention (1er plat uniquement):</span>
+                <span>-${formatGNF(totalSubvention)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem; background: ${totalSupplement > 0 ? '#fef3c7' : 'rgba(255,255,255,0.1)'}; color: ${totalSupplement > 0 ? '#92400e' : 'white'}; padding: 0.75rem; border-radius: 6px;">
+                <span>A payer:</span>
+                <span>${formatGNF(totalSupplement)}</span>
               </div>
               ${totalSupplement > 0 ? `
-              <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem; background: #fef3c7; color: #92400e; padding: 0.5rem; border-radius: 6px;">
-                <span>Supplement a payer:</span>
-                <span style="font-weight: bold;">${formatGNF(totalSupplement)}</span>
-              </div>
+              <p style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                * La subvention de 30 000 GNF s'applique uniquement au 1er plat. Les autres plats sont au prix complet.
+              </p>
               ` : ''}
             </div>
             

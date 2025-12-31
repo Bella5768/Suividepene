@@ -1829,8 +1829,12 @@ def commander_public(request, token):
             )
             
             # Variables pour calculer le supplément
+            # Subvention de 30000 GNF uniquement sur le 1er plat (1 seule unite)
+            # Les autres plats sont au prix complet
             total_supplement = Decimal('0.00')
+            total_subvention = Decimal('0.00')
             plats_avec_supplement = []
+            subvention_utilisee = False
             
             # Créer les lignes
             for ligne_data in lignes_data:
@@ -1852,14 +1856,25 @@ def commander_public(request, token):
                         prix_unitaire=menu_plat.prix_jour
                     )
                     
-                    # Calculer le supplément si le prix dépasse 30 000 GNF
-                    if menu_plat.prix_jour > 30000:
-                        supplement = (menu_plat.prix_jour - Decimal('30000.00')) * quantite
-                        total_supplement += supplement
+                    # Calculer le supplement pour chaque unite
+                    for i in range(quantite):
+                        if not subvention_utilisee:
+                            # Premier plat: subvention de max 30000 GNF
+                            subvention = min(menu_plat.prix_jour, Decimal('30000.00'))
+                            total_subvention += subvention
+                            supplement_unite = menu_plat.prix_jour - subvention
+                            total_supplement += supplement_unite
+                            subvention_utilisee = True
+                        else:
+                            # Autres plats: prix complet a payer
+                            total_supplement += menu_plat.prix_jour
+                    
+                    # Ajouter aux plats avec supplement pour l'affichage
+                    if menu_plat.prix_jour > 30000 or quantite > 1 or len(lignes_data) > 1:
                         plats_avec_supplement.append({
                             'plat': menu_plat.plat.nom,
                             'prix_reel': float(menu_plat.prix_jour),
-                            'supplement': float(supplement)
+                            'quantite': quantite
                         })
                         
                 except MenuPlat.DoesNotExist:
