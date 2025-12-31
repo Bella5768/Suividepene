@@ -73,10 +73,17 @@ async function loadMenuDuJour() {
     renderMenu();
   } catch (error) {
     console.error('Erreur chargement menu:', error);
+    const errorMessage = error?.response?.data?.error || error?.message || 'Erreur inconnue';
     content.innerHTML = `
-      <div class="card error-card">
-        <p>Erreur lors du chargement du menu.</p>
-        <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
+      <div class="card" style="text-align: center; padding: 2rem;">
+        <h2 style="color: #ef4444; margin-bottom: 1rem;">Menu non disponible</h2>
+        <p style="color: #64748b; margin-bottom: 1rem;">${errorMessage}</p>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem;">
+          Le menu du jour n'a pas encore ete publie par le gestionnaire.
+        </p>
+        <button class="btn btn-primary" onclick="location.reload()" style="background: #124684; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; color: white; font-weight: bold;">
+          Reessayer
+        </button>
       </div>
     `;
   }
