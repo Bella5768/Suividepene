@@ -100,14 +100,9 @@
                 <thead>
                     <tr>
                         <th>Plat</th>
-                        <th>Quantité</th>
-                        {% if a_supplement %}
-                        <th>Prix unitaire</th>
-                        <th>Supplément (> 30 000 GNF)</th>
-                        {% else %}
+                        <th>Quantite</th>
                         <th>Prix unitaire</th>
                         <th>Total</th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -115,50 +110,35 @@
                     <tr>
                         <td>{{ ligne.plat_nom }}</td>
                         <td>{{ ligne.quantite }}</td>
-                        {% if ligne.depasse_30000 %}
-                        <td>{{ ligne.prix_unitaire }} GNF</td>
-                        <td><strong>{{ ligne.supplement }} GNF</strong></td>
-                        {% else %}
                         <td>{{ ligne.prix_unitaire }} GNF</td>
                         <td>{{ ligne.montant_ligne }} GNF</td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
             
             <div class="total">
-                {% if a_plats_simples and a_supplement %}
-                {# Cas mixte : plats simples + plats avec supplément #}
-                <p>Total plats (≤ 30 000 GNF) : {{ total_plats_simple }} GNF</p>
-                <p>Total suppléments (> 30 000 GNF) : {{ total_supplement }} GNF</p>
-                <p style="color: #28a745; font-size: 1.3em; margin-top: 10px;">
-                    <strong>Total Net à payer : {{ montant_net_a_payer }} GNF</strong>
-                </p>
-                {% elif a_supplement %}
-                {# Seulement des plats avec supplément #}
-                <p style="color: #28a745; font-size: 1.3em;">
-                    <strong>Total Net à payer : {{ montant_net_a_payer }} GNF</strong>
-                </p>
-                <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                    (Supplément pour plat dépassant 30 000 GNF)
+                <p>Prix total : {{ total_prix }} GNF</p>
+                <p style="color: #28a745;">Subvention (1er plat) : -{{ total_subvention }} GNF</p>
+                {% if a_payer %}
+                <p style="color: #dc3545; font-size: 1.3em; margin-top: 10px;">
+                    <strong>A payer : {{ montant_net_a_payer }} GNF</strong>
                 </p>
                 {% else %}
-                {# Seulement des plats simples (≤ 30 000 GNF) - Pas de "net à payer" #}
                 <p style="color: #28a745; font-size: 1.1em; margin-top: 10px;">
-                    <strong>Votre commande est prise en charge par l'établissement.</strong>
+                    <strong>Votre commande est entierement prise en charge.</strong>
                 </p>
                 {% endif %}
             </div>
         </div>
         
         <p style="margin-top: 20px;">
-            <strong>Important :</strong> Votre commande a été enregistrée et sera préparée pour le {{ date_commande }}.
+            <strong>Important :</strong> Votre commande a ete enregistree et sera preparee pour le {{ date_commande }}.
         </p>
         
-        {% if a_supplement %}
-        <p style="background-color: #e7f3ff; padding: 10px; border-radius: 5px; border-left: 4px solid #007bff; margin-top: 15px;">
-            <strong>Information :</strong> Pour les plats depassant 30 000 GNF, seul le supplement (montant au-dela de 30 000 GNF) est facture. Le montant de base (30 000 GNF) est pris en charge par l'etablissement.
+        {% if a_payer %}
+        <p style="background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; margin-top: 15px;">
+            <strong>Information :</strong> La subvention de 30 000 GNF s'applique uniquement au 1er plat. Les autres plats sont au prix complet.
         </p>
         {% endif %}
         

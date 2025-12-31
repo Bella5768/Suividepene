@@ -2336,53 +2336,47 @@ def envoyer_email_confirmation(commande):
     print(f"   [OK] Email valide: {email_destinataire}")
     
     # Préparer les données pour le template
+    # Nouvelle logique: subvention de 30000 GNF uniquement sur le 1er plat
     lignes = []
-    total_supplement = 0
-    total_plats_simple = 0  # Total des plats <= 30 000 GNF
+    total_prix = 0
+    total_subvention = 0
+    total_a_payer = 0
+    subvention_utilisee = False
     
     for ligne in commande.lignes.all():
         prix_unitaire = float(ligne.prix_unitaire)
         
-        if prix_unitaire > 30000:
-            # Pour les plats > 30 000 GNF, on calcule seulement le supplément
-            supplement_ligne = (prix_unitaire - 30000) * ligne.quantite
-            total_supplement += supplement_ligne
-            lignes.append({
-                'plat_nom': ligne.menu_plat.plat.nom,
-                'quantite': ligne.quantite,
-                'prix_unitaire': f"{prix_unitaire:,.0f}",
-                'montant_ligne': f"{ligne.montant_ligne:,.0f}",
-                'supplement': f"{supplement_ligne:,.0f}",
-                'depasse_30000': True,
-            })
-        else:
-            # Pour les plats <= 30 000 GNF, on affiche le montant normal
-            total_plats_simple += float(ligne.montant_ligne)
-            lignes.append({
-                'plat_nom': ligne.menu_plat.plat.nom,
-                'quantite': ligne.quantite,
-                'prix_unitaire': f"{prix_unitaire:,.0f}",
-                'montant_ligne': f"{ligne.montant_ligne:,.0f}",
-                'supplement': 0,
-                'depasse_30000': False,
-            })
+        for i in range(ligne.quantite):
+            if not subvention_utilisee:
+                # Premier plat: subvention de max 30000 GNF
+                subvention = min(prix_unitaire, 30000)
+                total_subvention += subvention
+                a_payer_unite = prix_unitaire - subvention
+                total_a_payer += a_payer_unite
+                subvention_utilisee = True
+            else:
+                # Autres plats: prix complet
+                total_a_payer += prix_unitaire
+            total_prix += prix_unitaire
+        
+        lignes.append({
+            'plat_nom': ligne.menu_plat.plat.nom,
+            'quantite': ligne.quantite,
+            'prix_unitaire': f"{prix_unitaire:,.0f}",
+            'montant_ligne': f"{prix_unitaire * ligne.quantite:,.0f}",
+        })
     
-    # Calculer le montant net à payer selon les règles
-    # Si seulement des plats simples (<= 30 000), montant_net = total_plats_simple
-    # Si seulement des plats avec supplément, montant_net = total_supplement
-    # Si mixte, montant_net = total_plats_simple + total_supplement
-    montant_net_a_payer = total_plats_simple + total_supplement
+    montant_net_a_payer = total_a_payer
     
     context = {
         'nom_employe': nom_employe or commande.utilisateur.username if commande.utilisateur else 'Client',
         'date_commande': commande.date_commande.strftime('%d/%m/%Y'),
         'commande_id': commande.id,
         'lignes': lignes,
+        'total_prix': f"{total_prix:,.0f}",
+        'total_subvention': f"{total_subvention:,.0f}",
         'montant_net_a_payer': f"{montant_net_a_payer:,.0f}",
-        'total_plats_simple': f"{total_plats_simple:,.0f}",
-        'total_supplement': f"{total_supplement:,.0f}",
-        'a_supplement': total_supplement > 0,
-        'a_plats_simples': total_plats_simple > 0,
+        'a_payer': montant_net_a_payer > 0,
     }
     
     # Rendre le template HTML
