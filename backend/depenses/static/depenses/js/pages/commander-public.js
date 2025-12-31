@@ -359,52 +359,54 @@ window.validerCommande = async function() {
     
     // Afficher message de confirmation
     const content = document.getElementById('commander-public-content');
-    content.innerHTML = `
-      <div class="card" style="text-align: center; padding: 3rem; background: #124684; color: white;">
-        <h2 style="color: white; font-size: 2rem; margin-bottom: 1rem;">Commande enregistree !</h2>
-        <p style="color: rgba(255,255,255,0.9); font-size: 1.1rem; margin-bottom: 1rem;">
-          Merci <strong>${nomSauvegarde}</strong>, votre commande a ete enregistree.
-        </p>
-        ${totalSupplementConfirm > 0 ? `
-          <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <p style="color: rgba(255,255,255,0.9); font-size: 1rem;">
-              <strong>En attente de validation</strong> par le gestionnaire.
-            </p>
-            ${emailFourni ? `
-              <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-top: 0.5rem;">
-                Vous recevrez un email de confirmation a <strong>${emailFourni}</strong> une fois validee.
-              </p>
-            ` : ''}
-          </div>
-          <div style="background: #fef3c7; color: #92400e; padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; text-align: left;">
-            <h3 style="color: #92400e; margin-bottom: 0.5rem;">
-              Supplement a payer
-            </h3>
-            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">
-              Vous devrez payer <strong>${formatGNF(totalSupplementConfirm)}</strong> en especes.
-            </p>
-            <p style="font-size: 0.9rem; color: #a16207;">
-              Ce montant correspond a la difference entre le prix du plat et la subvention de 30 000 GNF.
+    
+    // Message different selon si supplement ou pas
+    if (totalSupplementConfirm > 0) {
+      // Avec supplement: attente de validation
+      content.innerHTML = `
+        <div class="card" style="text-align: center; padding: 2rem; background: #124684; color: white;">
+          <h2 style="color: white; font-size: 1.8rem; margin-bottom: 1rem;">Commande en attente</h2>
+          <p style="color: rgba(255,255,255,0.9); font-size: 1rem; margin-bottom: 1rem;">
+            Merci <strong>${nomSauvegarde}</strong>, votre commande est en attente de validation.
+          </p>
+          <div style="background: #fef3c7; color: #92400e; padding: 1.5rem; border-radius: 12px; margin: 1rem 0; text-align: left;">
+            <h3 style="color: #92400e; margin-bottom: 0.5rem;">Supplement a payer: ${formatGNF(totalSupplementConfirm)}</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+              Contactez <strong>Hawa Bah</strong> au <a href="tel:+224620559464" style="color: #92400e; font-weight: bold;">620 55 94 64</a> pour le paiement.
             </p>
           </div>
-        ` : `
           ${emailFourni ? `
-            <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-              <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
-                Un email de confirmation sera envoye a <strong>${emailFourni}</strong>.
-              </p>
-            </div>
+            <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">
+              Email de confirmation a <strong>${emailFourni}</strong> apres validation.
+            </p>
           ` : ''}
-        `}
-        <button 
-          onclick="location.reload()" 
-          class="btn" 
-          style="background: white; color: #124684; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1.1rem; margin-top: 1rem; border-radius: 6px;"
-        >
-          Nouvelle commande
-        </button>
-      </div>
-    `;
+          <button onclick="location.reload()" class="btn" style="background: white; color: #124684; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1rem; margin-top: 1rem; border-radius: 6px;">
+            Nouvelle commande
+          </button>
+        </div>
+      `;
+    } else {
+      // Sans supplement: commande directement enregistree
+      content.innerHTML = `
+        <div class="card" style="text-align: center; padding: 2rem; background: #10b981; color: white;">
+          <h2 style="color: white; font-size: 1.8rem; margin-bottom: 1rem;">Commande enregistree !</h2>
+          <p style="color: rgba(255,255,255,0.9); font-size: 1rem; margin-bottom: 1rem;">
+            Merci <strong>${nomSauvegarde}</strong>, votre commande a ete enregistree avec succes.
+          </p>
+          <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
+            Votre repas sera pret pour le dejeuner.
+          </p>
+          ${emailFourni ? `
+            <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">
+              Confirmation envoyee a <strong>${emailFourni}</strong>.
+            </p>
+          ` : ''}
+          <button onclick="location.reload()" class="btn" style="background: white; color: #10b981; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1rem; margin-top: 1rem; border-radius: 6px;">
+            Nouvelle commande
+          </button>
+        </div>
+      `;
+    }
   } catch (error) {
     console.error('Erreur validation commande:', error);
     toast.error(error.message || 'Erreur lors de la validation de la commande');
