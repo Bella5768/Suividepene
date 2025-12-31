@@ -90,19 +90,21 @@ function renderRapport() {
         <h2>Rapport mensuel - ${moisFormate}</h2>
         <div class="rapport-stats">
           <div class="stat-card">
-            <div class="stat-label">Total Prévu</div>
-            <div class="stat-value">${formatGNF(rapportData.total_prevu || 0)}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Total Dépensé</div>
+            <div class="stat-label">Total Depense</div>
             <div class="stat-value">${formatGNF(rapportData.total_depense || 0)}</div>
+            <div class="stat-sublabel" style="font-size: 0.75rem; color: #64748b;">Operations effectuees</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Écart</div>
+            <div class="stat-label">Budget Restant</div>
             <div class="stat-value ${(rapportData.ecart || 0) < 0 ? 'negative' : ''}">${formatGNF(rapportData.ecart || 0)}</div>
+            <div class="stat-sublabel" style="font-size: 0.75rem; color: #64748b;">Prevu: ${formatGNF(rapportData.total_prevu || 0)}</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Moyenne journalière</div>
+            <div class="stat-label">% Utilise</div>
+            <div class="stat-value">${rapportData.total_prevu > 0 ? ((rapportData.total_depense / rapportData.total_prevu) * 100).toFixed(1) : 0}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Moyenne journaliere</div>
             <div class="stat-value">${formatGNF(rapportData.moyenne_journaliere || 0)}</div>
           </div>
         </div>
