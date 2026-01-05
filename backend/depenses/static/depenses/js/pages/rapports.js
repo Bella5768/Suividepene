@@ -91,17 +91,17 @@ function renderRapport() {
         <div class="rapport-stats">
           <div class="stat-card">
             <div class="stat-label">Total Depense</div>
-            <div class="stat-value">${formatGNF(rapportData.total_depense || 0)}</div>
+            <div class="stat-value">${formatGNF(rapportData.total_depenses || rapportData.total_depense || 0)}</div>
             <div class="stat-sublabel" style="font-size: 0.75rem; color: #64748b;">Operations effectuees</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Budget Restant</div>
-            <div class="stat-value ${(rapportData.ecart || 0) < 0 ? 'negative' : ''}">${formatGNF(rapportData.ecart || 0)}</div>
+            <div class="stat-value ${(rapportData.ecart_global || rapportData.ecart || 0) < 0 ? 'negative' : ''}">${formatGNF(rapportData.total_prevu - (rapportData.total_depenses || rapportData.total_depense || 0))}</div>
             <div class="stat-sublabel" style="font-size: 0.75rem; color: #64748b;">Prevu: ${formatGNF(rapportData.total_prevu || 0)}</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">% Utilise</div>
-            <div class="stat-value">${rapportData.total_prevu > 0 ? ((rapportData.total_depense / rapportData.total_prevu) * 100).toFixed(1) : 0}%</div>
+            <div class="stat-value">${rapportData.total_prevu > 0 ? (((rapportData.total_depenses || rapportData.total_depense || 0) / rapportData.total_prevu) * 100).toFixed(1) : 0}%</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Moyenne journaliere</div>
@@ -160,14 +160,14 @@ function renderRapport() {
     </div>
   `;
 
-  // Attacher événements export - utiliser les nouvelles routes Django avec login_required
+  // Attacher événements export - utiliser les routes API
   document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
-    toast.info('Génération du PDF en cours...');
-    window.open(`/export/rapport/pdf/?mois=${selectedMois}`, '_blank');
+    toast.info('Generation du PDF en cours...');
+    window.open(`/api/rapports/export_pdf/?mois=${selectedMois}`, '_blank');
   });
   document.getElementById('btn-export-excel')?.addEventListener('click', () => {
-    toast.info('Génération du fichier Excel en cours...');
-    window.open(`/export/rapport/excel/?mois=${selectedMois}`, '_blank');
+    toast.info('Generation du fichier Excel en cours...');
+    window.open(`/api/rapports/export_excel/?mois=${selectedMois}`, '_blank');
   });
 }
 
