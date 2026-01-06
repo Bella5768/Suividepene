@@ -46,6 +46,11 @@ try:
             print(f"✅ Categorie cree: {categorie.nom}")
         else:
             print(f"ℹ️  Categorie existe: {categorie.nom}")
+            # Mettre à jour le nom si different
+            if categorie.nom != cat_data['nom']:
+                categorie.nom = cat_data['nom']
+                categorie.save()
+                print(f"📝 Nom mis a jour: {categorie.nom}")
     
     print("\nCreation des sous-categories...")
     for sc_data in sous_categories_data:
