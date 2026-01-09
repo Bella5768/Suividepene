@@ -144,24 +144,9 @@ async function loadPrevisions() {
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
-    // Essayer plusieurs formats de date
-    let data;
-    const moisAnnee = selectedMois; // Format: 2026-01
-    const moisDate1 = `${selectedMois}-01`; // Format: 2026-01-01
-    
-    // D'abord essayer avec le format mois-annee
-    try {
-      data = await apiService.get(`/api/previsions/by_month/?mois=${moisAnnee}`);
-    } catch (e1) {
-      // Si ca echoue, essayer avec le format complet
-      try {
-        data = await apiService.get(`/api/previews/?mois=${moisDate1}`);
-      } catch (e2) {
-        // Si ca echoue aussi, essayer sans filtre
-        data = await apiService.get('/api/previews/');
-      }
-    }
-    
+    // Le champ mois est une string, utiliser le format YYYY-MM-DD
+    const moisDate = `${selectedMois}-01`;
+    const data = await apiService.get(`/api/previsions/?mois=${moisDate}`);
     previsions = Array.isArray(data) ? data : (data.results || []);
     renderPrevisionsTable();
   } catch (error) {
