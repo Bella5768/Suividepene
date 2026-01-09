@@ -49,9 +49,16 @@ try:
     try:
         categorie = Categorie.objects.first()
         if categorie:
+            # Verifier le format du champ mois
+            first_prev = Prevision.objects.first()
+            if first_prev:
+                print(f"Type du champ mois: {type(first_prev.mois)}")
+                print(f"Valeur du champ mois: {first_prev.mois}")
+            
+            # Utiliser le bon format
             prevision, created = Prevision.objects.get_or_create(
                 categorie=categorie,
-                mois="2026-01-01",
+                mois="2026-01-01",  # Format string
                 defaults={
                     'montant_prevu': 1000000,
                     'statut': 'draft'
