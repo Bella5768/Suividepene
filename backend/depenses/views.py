@@ -2496,6 +2496,8 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
         # Logo CSIG (si disponible via staticfiles)
         logo_path = finders.find('depenses/assets/logocsig.png')
 
+        csig_blue = colors.HexColor('#0B3D91')
+
         # Tickets en vertical (1 ticket par ligne) avec traits de découpe
         ticket_rows = []
         for ticket in tickets:
@@ -2518,23 +2520,38 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
                     logo_flowable = ''
 
             ticket_text = Paragraph(
-                f"<b>TICKET REPAS</b><br/>"
-                f"<font size=14><b>{ticket.code_unique}</b></font><br/>"
-                f"<font size=9>Lot: {lot.nom}</font><br/>"
-                f"<font size=9>Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>",
+                f"<font color='#FFFFFF'><b>TICKET REPAS</b></font><br/>"
+                f"<font color='#FFFFFF' size='14'><b>{ticket.code_unique}</b></font><br/>"
+                f"<font color='#FFFFFF' size='9'>Lot: {lot.nom}</font><br/>"
+                f"<font color='#FFFFFF' size='9'>Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>",
                 styles['Normal']
             )
 
+            # QR dans une mini-table pour garantir un fond blanc
+            qr_box = Table([[qr_drawing]], colWidths=[70], rowHeights=[70])
+            qr_box.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, 0), colors.white),
+                ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+                ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (0, 0), 4),
+                ('RIGHTPADDING', (0, 0), (0, 0), 4),
+                ('TOPPADDING', (0, 0), (0, 0), 4),
+                ('BOTTOMPADDING', (0, 0), (0, 0), 4),
+            ]))
+
+            # 4 colonnes: logo | texte | QR | espace (pour rapprocher le QR du texte tout en gardant une marge à droite)
             inner = Table(
-                [[logo_flowable, ticket_text, qr_drawing]],
-                colWidths=[50, 380, 70],
+                [[logo_flowable, ticket_text, qr_box, '']],
+                colWidths=[55, 300, 80, 105],
             )
             inner.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-                ('ALIGN', (2, 0), (2, 0), 'CENTER'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 8),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('ALIGN', (2, 0), (2, 0), 'LEFT'),
+                ('BACKGROUND', (0, 0), (-1, -1), csig_blue),
+                ('BACKGROUND', (2, 0), (2, 0), colors.white),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ]))
@@ -2545,7 +2562,7 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
             tickets_table = Table(ticket_rows, colWidths=[540])
             tickets_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('BACKGROUND', (0, 0), (-1, -1), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, -1), csig_blue),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 10),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 10),
