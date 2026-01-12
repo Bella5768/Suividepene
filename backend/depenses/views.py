@@ -2478,10 +2478,30 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
         elements = []
         styles = getSampleStyleSheet()
         
-        # Titre
+        # Logo CSIG (si disponible via staticfiles)
+        logo_path = finders.find('depenses/assets/logocsig.png')
+
+        # En-tête (logo + titre)
+        header_logo = ''
+        if logo_path:
+            try:
+                header_logo = Image(logo_path, width=55, height=55)
+            except Exception:
+                header_logo = ''
+
         titre = Paragraph(f"<b>Tickets de Repas - {lot.nom}</b>", styles['Title'])
-        elements.append(titre)
-        elements.append(Spacer(1, 12))
+        header = Table([[header_logo, titre]], colWidths=[70, 470])
+        header.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(header)
+        elements.append(Spacer(1, 10))
         
         # Info du lot
         info = Paragraph(
@@ -2493,9 +2513,6 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
         elements.append(info)
         elements.append(Spacer(1, 24))
         
-        # Logo CSIG (si disponible via staticfiles)
-        logo_path = finders.find('depenses/assets/logocsig.png')
-
         csig_blue = colors.HexColor('#0B3D91')
 
         # Tickets en vertical (1 ticket par ligne) avec traits de découpe
