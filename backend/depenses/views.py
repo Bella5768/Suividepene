@@ -33,6 +33,9 @@ from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
+from django.contrib.staticfiles import finders
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from audit.middleware import log_audit
@@ -2490,38 +2493,69 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
         elements.append(info)
         elements.append(Spacer(1, 24))
         
-        # Créer les tickets (3 par ligne, style cartes)
-        ticket_data = []
-        row = []
-        for i, ticket in enumerate(tickets):
-            ticket_content = f"""
-            <b>TICKET REPAS</b><br/>
-            <font size="14"><b>{ticket.code_unique}</b></font><br/>
-            <font size="8">Lot: {lot.nom}</font><br/>
-            <font size="8">Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>
-            """
-            row.append(Paragraph(ticket_content, styles['Normal']))
-            
-            if len(row) == 3:
-                ticket_data.append(row)
-                row = []
-        
-        # Ajouter la dernière ligne si elle n'est pas complète
-        if row:
-            while len(row) < 3:
-                row.append('')
-            ticket_data.append(row)
-        
-        if ticket_data:
-            table = Table(ticket_data, colWidths=[180, 180, 180])
-            table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        # Logo CSIG (si disponible via staticfiles)
+        logo_path = finders.find('depenses/assets/logocsig.png')
+
+        # Tickets en vertical (1 ticket par ligne) avec traits de découpe
+        ticket_rows = []
+        for ticket in tickets:
+            # QR Code avec le code unique
+            qr_widget = QrCodeWidget(ticket.code_unique)
+            qr_size = 55
+            qr_drawing = Drawing(qr_size, qr_size)
+            qr_drawing.add(qr_widget)
+            bounds = qr_widget.getBounds()
+            width = bounds[2] - bounds[0]
+            height = bounds[3] - bounds[1]
+            if width and height:
+                qr_drawing.scale(qr_size / width, qr_size / height)
+
+            logo_flowable = ''
+            if logo_path:
+                try:
+                    logo_flowable = Image(logo_path, width=40, height=40)
+                except Exception:
+                    logo_flowable = ''
+
+            ticket_text = Paragraph(
+                f"<b>TICKET REPAS</b><br/>"
+                f"<font size=14><b>{ticket.code_unique}</b></font><br/>"
+                f"<font size=9>Lot: {lot.nom}</font><br/>"
+                f"<font size=9>Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>",
+                styles['Normal']
+            )
+
+            inner = Table(
+                [[logo_flowable, ticket_text, qr_drawing]],
+                colWidths=[50, 380, 70],
+            )
+            inner.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('PADDING', (0, 0), (-1, -1), 10),
-                ('BACKGROUND', (0, 0), (-1, -1), colors.lightyellow),
+                ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                ('ALIGN', (2, 0), (2, 0), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ]))
-            elements.append(table)
+
+            ticket_rows.append([inner])
+
+        if ticket_rows:
+            tickets_table = Table(ticket_rows, colWidths=[540])
+            tickets_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.whitesmoke),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                # Trait de découpe entre tickets
+                ('LINEBELOW', (0, 0), (-1, -2), 1, colors.grey),
+                ('DASH', (0, 0), (-1, -2), 3, 3),
+            ]))
+            elements.append(tickets_table)
         
         doc.build(elements)
         return response
