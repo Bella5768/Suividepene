@@ -2503,7 +2503,7 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
         for ticket in tickets:
             # QR Code avec le code unique
             qr_widget = QrCodeWidget(ticket.code_unique)
-            qr_size = 55
+            qr_size = 42
             qr_drawing = Drawing(qr_size, qr_size)
             qr_drawing.add(qr_widget)
             bounds = qr_widget.getBounds()
@@ -2515,34 +2515,34 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
             logo_flowable = ''
             if logo_path:
                 try:
-                    logo_flowable = Image(logo_path, width=40, height=40)
+                    logo_flowable = Image(logo_path, width=30, height=30)
                 except Exception:
                     logo_flowable = ''
 
             ticket_text = Paragraph(
                 f"<font color='#FFFFFF'><b>TICKET REPAS</b></font><br/>"
-                f"<font color='#FFFFFF' size='14'><b>{ticket.code_unique}</b></font><br/>"
-                f"<font color='#FFFFFF' size='9'>Lot: {lot.nom}</font><br/>"
-                f"<font color='#FFFFFF' size='9'>Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>",
+                f"<font color='#FFFFFF' size='12'><b>{ticket.code_unique}</b></font><br/>"
+                f"<font color='#FFFFFF' size='8'>Lot: {lot.nom}</font><br/>"
+                f"<font color='#FFFFFF' size='8'>Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>",
                 styles['Normal']
             )
 
             # QR dans une mini-table pour garantir un fond blanc
-            qr_box = Table([[qr_drawing]], colWidths=[70], rowHeights=[70])
+            qr_box = Table([[qr_drawing]], colWidths=[54], rowHeights=[54])
             qr_box.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (0, 0), colors.white),
                 ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
                 ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-                ('LEFTPADDING', (0, 0), (0, 0), 4),
-                ('RIGHTPADDING', (0, 0), (0, 0), 4),
-                ('TOPPADDING', (0, 0), (0, 0), 4),
-                ('BOTTOMPADDING', (0, 0), (0, 0), 4),
+                ('LEFTPADDING', (0, 0), (0, 0), 2),
+                ('RIGHTPADDING', (0, 0), (0, 0), 2),
+                ('TOPPADDING', (0, 0), (0, 0), 2),
+                ('BOTTOMPADDING', (0, 0), (0, 0), 2),
             ]))
 
-            # 4 colonnes: logo | texte | QR | espace (pour rapprocher le QR du texte tout en gardant une marge à droite)
+            # 3 colonnes: logo | texte | QR (pas de colonne vide à droite)
             inner = Table(
-                [[logo_flowable, ticket_text, qr_box, '']],
-                colWidths=[55, 300, 80, 105],
+                [[logo_flowable, ticket_text, qr_box]],
+                colWidths=[40, 438, 62],
             )
             inner.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -2550,24 +2550,24 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
                 ('ALIGN', (2, 0), (2, 0), 'LEFT'),
                 ('BACKGROUND', (0, 0), (-1, -1), csig_blue),
                 ('BACKGROUND', (2, 0), (2, 0), colors.white),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
             ]))
 
             ticket_rows.append([inner])
 
         if ticket_rows:
-            tickets_table = Table(ticket_rows, colWidths=[540])
+            tickets_table = Table(ticket_rows, colWidths=[540], rowHeights=[62] * len(ticket_rows))
             tickets_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (-1, -1), csig_blue),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 10),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-                ('TOPPADDING', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 # Trait de découpe entre tickets
                 ('LINEBELOW', (0, 0), (-1, -2), 1, colors.grey),
                 ('DASH', (0, 0), (-1, -2), 3, 3),
