@@ -605,9 +605,31 @@ async function supprimerLot(lotId) {
   }
 }
 
-function imprimerLot(lotId) {
-  // Ouvrir le PDF dans un nouvel onglet
-  window.open(`/api/restauration/lots-tickets/${lotId}/imprimer/`, '_blank');
+async function imprimerLot(lotId) {
+  try {
+    const blob = await apiService.getBlob(`/api/restauration/lots-tickets/${lotId}/imprimer/`);
+    const blobUrl = window.URL.createObjectURL(blob);
+
+    // Ouvrir dans un nouvel onglet (visualisation PDF)
+    const win = window.open(blobUrl, '_blank');
+    if (!win) {
+      // Fallback si popup bloquée: télécharger
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `tickets_lot_${lotId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // Libérer l'URL après un délai (laisser le temps au navigateur de charger)
+    setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl);
+    }, 60_000);
+  } catch (error) {
+    console.error('Erreur impression:', error);
+    toast.error('Impossible d\'imprimer: authentification requise ou erreur serveur');
+  }
 }
 
 function imprimerTicketsLot() {

@@ -26,6 +26,7 @@ urlpatterns = [
     path('utilisateurs/', index, name='utilisateurs'),
     path('audit/', index, name='audit'),
     path('restauration/', index, name='restauration'),
+    path('restauration/tickets/', index, name='tickets-repas'),
     path('commander/<str:token>/', index, name='commander-public'),
     path('commander/', index, name='commander-aujourdhui'),  # Lien fixe pour le menu du jour
     path('tableau-bord-cantine/', index, name='tableau-bord-cantine'),
