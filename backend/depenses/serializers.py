@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from .models import (
     Categorie, SousCategorie, Prevision, Operation, Imputation,
     Plat, Menu, MenuPlat, FenetreCommande, RegleSubvention, Commande, CommandeLigne, UserPermission,
-    ExtraRestauration
+    ExtraRestauration, TicketRepas, LotTickets
 )
 
 
@@ -437,5 +437,43 @@ class ExtraRestaurationSerializer(serializers.ModelSerializer):
                 instance.operation.save()
             
             return instance
+
+
+class TicketRepasSerializer(serializers.ModelSerializer):
+    """Serializer pour les tickets de repas"""
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    lot_nom = serializers.CharField(source='lot.nom', read_only=True)
+    
+    class Meta:
+        model = TicketRepas
+        fields = [
+            'id', 'code_unique', 'lot', 'lot_nom', 'statut', 'statut_display',
+            'date_utilisation', 'utilisateur_beneficiaire', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['code_unique', 'created_at', 'updated_at']
+
+
+class LotTicketsSerializer(serializers.ModelSerializer):
+    """Serializer pour les lots de tickets"""
+    tickets_disponibles = serializers.IntegerField(read_only=True)
+    tickets_utilises = serializers.IntegerField(read_only=True)
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = LotTickets
+        fields = [
+            'id', 'nom', 'description', 'nombre_tickets', 'date_validite',
+            'tickets_disponibles', 'tickets_utilises',
+            'created_by', 'created_by_username', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
+
+class LotTicketsCreateSerializer(serializers.Serializer):
+    """Serializer pour créer un lot de tickets"""
+    nom = serializers.CharField(max_length=100)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    nombre_tickets = serializers.IntegerField(min_value=1, max_value=500)
+    date_validite = serializers.DateField(required=False, allow_null=True)
 
 

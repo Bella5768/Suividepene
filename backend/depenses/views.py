@@ -11,14 +11,15 @@ import calendar
 from .models import (
     Categorie, SousCategorie, Prevision, Operation, Imputation,
     Plat, Menu, MenuPlat, FenetreCommande, RegleSubvention, Commande, CommandeLigne, Facture,
-    ExtraRestauration
+    ExtraRestauration, TicketRepas, LotTickets
 )
 from .serializers import (
     CategorieSerializer, SousCategorieSerializer, PrevisionSerializer,
     OperationSerializer, ImputationSerializer,
     PlatSerializer, MenuSerializer, MenuPlatSerializer, FenetreCommandeSerializer,
     RegleSubventionSerializer, CommandeSerializer, CommandeLigneSerializer, CommandeCreateSerializer,
-    UserSerializer, UserPermissionSerializer, ExtraRestaurationSerializer
+    UserSerializer, UserPermissionSerializer, ExtraRestaurationSerializer,
+    TicketRepasSerializer, LotTicketsSerializer, LotTicketsCreateSerializer
 )
 from django.contrib.auth.models import User
 from .filters import OperationFilter, PrevisionFilter
@@ -2400,4 +2401,207 @@ def envoyer_email_confirmation(commande):
         print(f"   Details:")
         print(traceback.format_exc())
         return {'success': False, 'error': error_msg, 'email': email_destinataire}
+
+
+class LotTicketsViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les lots de tickets"""
+    queryset = LotTickets.objects.all()
+    serializer_class = LotTicketsSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=False, methods=['post'])
+    def generer(self, request):
+        """Générer un nouveau lot de tickets"""
+        create_serializer = LotTicketsCreateSerializer(data=request.data)
+        if not create_serializer.is_valid():
+            return Response(create_serializer.errors, status=400)
+        
+        data = create_serializer.validated_data
+        
+        try:
+            with transaction.atomic():
+                # Créer le lot
+                lot = LotTickets.objects.create(
+                    nom=data['nom'],
+                    description=data.get('description', ''),
+                    nombre_tickets=data['nombre_tickets'],
+                    date_validite=data.get('date_validite'),
+                    created_by=request.user
+                )
+                
+                # Générer les tickets
+                lot.generer_tickets()
+                
+                if request.user.is_authenticated:
+                    log_audit('create', request.user, lot, metadata={
+                        'type': 'lot_tickets',
+                        'nombre_tickets': data['nombre_tickets']
+                    })
+                
+                serializer = LotTicketsSerializer(lot)
+                return Response(serializer.data, status=201)
+        
+        except Exception as e:
+            return Response({'error': f'Erreur lors de la génération: {str(e)}'}, status=500)
+    
+    @action(detail=True, methods=['get'])
+    def tickets(self, request, pk=None):
+        """Récupérer tous les tickets d'un lot"""
+        lot = self.get_object()
+        tickets = lot.tickets.all()
+        
+        # Filtrer par statut si demandé
+        statut = request.query_params.get('statut')
+        if statut:
+            tickets = tickets.filter(statut=statut)
+        
+        serializer = TicketRepasSerializer(tickets, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def imprimer(self, request, pk=None):
+        """Générer un PDF avec les tickets du lot pour impression"""
+        lot = self.get_object()
+        tickets = lot.tickets.filter(statut='disponible')
+        
+        # Créer le PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="tickets_{lot.nom}_{lot.id}.pdf"'
+        
+        doc = SimpleDocTemplate(response, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Titre
+        titre = Paragraph(f"<b>Tickets de Repas - {lot.nom}</b>", styles['Title'])
+        elements.append(titre)
+        elements.append(Spacer(1, 12))
+        
+        # Info du lot
+        info = Paragraph(
+            f"Date de génération: {lot.created_at.strftime('%d/%m/%Y %H:%M')}<br/>"
+            f"Nombre de tickets: {tickets.count()}<br/>"
+            f"Date de validité: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimitée'}",
+            styles['Normal']
+        )
+        elements.append(info)
+        elements.append(Spacer(1, 24))
+        
+        # Créer les tickets (3 par ligne, style cartes)
+        ticket_data = []
+        row = []
+        for i, ticket in enumerate(tickets):
+            ticket_content = f"""
+            <b>TICKET REPAS</b><br/>
+            <font size="14"><b>{ticket.code_unique}</b></font><br/>
+            <font size="8">Lot: {lot.nom}</font><br/>
+            <font size="8">Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>
+            """
+            row.append(Paragraph(ticket_content, styles['Normal']))
+            
+            if len(row) == 3:
+                ticket_data.append(row)
+                row = []
+        
+        # Ajouter la dernière ligne si elle n'est pas complète
+        if row:
+            while len(row) < 3:
+                row.append('')
+            ticket_data.append(row)
+        
+        if ticket_data:
+            table = Table(ticket_data, colWidths=[180, 180, 180])
+            table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('PADDING', (0, 0), (-1, -1), 10),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.lightyellow),
+            ]))
+            elements.append(table)
+        
+        doc.build(elements)
+        return response
+
+
+class TicketRepasViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les tickets individuels"""
+    queryset = TicketRepas.objects.all()
+    serializer_class = TicketRepasSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['statut', 'lot']
+    
+    @action(detail=False, methods=['get'])
+    def rechercher(self, request):
+        """Rechercher un ticket par son code"""
+        code = request.query_params.get('code')
+        if not code:
+            return Response({'error': 'Le paramètre "code" est requis'}, status=400)
+        
+        try:
+            ticket = TicketRepas.objects.get(code_unique__iexact=code)
+            serializer = TicketRepasSerializer(ticket)
+            return Response(serializer.data)
+        except TicketRepas.DoesNotExist:
+            return Response({'error': 'Ticket non trouvé'}, status=404)
+    
+    @action(detail=True, methods=['post'])
+    def utiliser(self, request, pk=None):
+        """Marquer un ticket comme utilisé"""
+        ticket = self.get_object()
+        beneficiaire = request.data.get('beneficiaire', '')
+        
+        try:
+            ticket.marquer_utilise(beneficiaire=beneficiaire)
+            
+            if request.user.is_authenticated:
+                log_audit('update', request.user, ticket, metadata={
+                    'action': 'ticket_utilise',
+                    'beneficiaire': beneficiaire
+                })
+            
+            serializer = TicketRepasSerializer(ticket)
+            return Response(serializer.data)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
+    
+    @action(detail=True, methods=['post'])
+    def annuler(self, request, pk=None):
+        """Annuler un ticket"""
+        ticket = self.get_object()
+        
+        if ticket.statut == 'utilise':
+            return Response({'error': 'Impossible d\'annuler un ticket déjà utilisé'}, status=400)
+        
+        ticket.statut = 'annule'
+        ticket.save()
+        
+        if request.user.is_authenticated:
+            log_audit('update', request.user, ticket, metadata={'action': 'ticket_annule'})
+        
+        serializer = TicketRepasSerializer(ticket)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistiques(self, request):
+        """Obtenir des statistiques sur les tickets"""
+        stats = {
+            'total': TicketRepas.objects.count(),
+            'disponibles': TicketRepas.objects.filter(statut='disponible').count(),
+            'utilises': TicketRepas.objects.filter(statut='utilise').count(),
+            'annules': TicketRepas.objects.filter(statut='annule').count(),
+        }
+        
+        # Stats par lot
+        lots_stats = LotTickets.objects.annotate(
+            nb_disponibles=Count('tickets', filter=Q(tickets__statut='disponible')),
+            nb_utilises=Count('tickets', filter=Q(tickets__statut='utilise')),
+        ).values('id', 'nom', 'nombre_tickets', 'nb_disponibles', 'nb_utilises')
+        
+        stats['par_lot'] = list(lots_stats)
+        
+        return Response(stats)
 

@@ -21,6 +21,7 @@ import { renderRestaurationMenus } from '/static/depenses/js/pages/restauration-
 import { renderRestaurationCommandes } from '/static/depenses/js/pages/restauration-commandes.js';
 import { renderExtrasRestauration } from '/static/depenses/js/pages/extras-restauration.js';
 import { renderTableauBordCantine } from '/static/depenses/js/pages/tableau-bord-cantine.js';
+import { renderTicketsRepas } from '/static/depenses/js/pages/tickets-repas.js';
 import { renderCommanderPublic } from '/static/depenses/js/pages/commander-public.js';
 
 /**
@@ -172,6 +173,15 @@ async function init() {
       const main = getMainContent();
       if (main) {
         await renderExtrasRestauration();
+      }
+    }
+  }, true);
+
+  router.addRoute('/restauration/tickets', async () => {
+    if (await requireAuth()) {
+      const main = getMainContent();
+      if (main) {
+        await renderTicketsRepas();
       }
     }
   }, true);

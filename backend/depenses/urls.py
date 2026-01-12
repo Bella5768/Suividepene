@@ -5,6 +5,7 @@ from .views import (
     OperationViewSet, ImputationViewSet, RapportViewSet,
     PlatViewSet, MenuViewSet, MenuPlatViewSet, FenetreCommandeViewSet,
     RegleSubventionViewSet, CommandeViewSet, CommandeLigneViewSet, ExtraRestaurationViewSet,
+    LotTicketsViewSet, TicketRepasViewSet,
     menu_public, commander_public, generer_facture, imprimer_facture
 )
 from audit.views import AuditLogViewSet
@@ -28,6 +29,8 @@ router.register(r'restauration/regles-subvention', RegleSubventionViewSet, basen
 router.register(r'restauration/commandes', CommandeViewSet, basename='commandes')
 router.register(r'restauration/commande-lignes', CommandeLigneViewSet, basename='commande-lignes')
 router.register(r'restauration/extras', ExtraRestaurationViewSet, basename='extras-restauration')
+router.register(r'restauration/lots-tickets', LotTicketsViewSet, basename='lots-tickets')
+router.register(r'restauration/tickets', TicketRepasViewSet, basename='tickets')
 
 urlpatterns = [
     path('', include(router.urls)),

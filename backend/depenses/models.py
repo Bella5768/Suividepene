@@ -834,3 +834,138 @@ class ExtraRestauration(models.Model):
             raise
 
 
+class TicketRepas(models.Model):
+    """Tickets de repas pour les travailleurs"""
+    STATUT_CHOICES = [
+        ('disponible', 'Disponible'),
+        ('utilise', 'Utilisé'),
+        ('annule', 'Annulé'),
+    ]
+    
+    code_unique = models.CharField(
+        max_length=20,
+        unique=True,
+        help_text="Code unique du ticket (ex: TKT-2026-XXXX)"
+    )
+    lot = models.ForeignKey(
+        'LotTickets',
+        on_delete=models.CASCADE,
+        related_name='tickets',
+        help_text="Lot auquel appartient ce ticket"
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='disponible'
+    )
+    date_utilisation = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date et heure d'utilisation du ticket"
+    )
+    utilisateur_beneficiaire = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Nom du travailleur bénéficiaire"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Ticket Repas"
+        verbose_name_plural = "Tickets Repas"
+        ordering = ['-created_at', 'code_unique']
+        indexes = [
+            models.Index(fields=['code_unique']),
+            models.Index(fields=['statut']),
+            models.Index(fields=['lot']),
+        ]
+    
+    def __str__(self):
+        return f"{self.code_unique} - {self.get_statut_display()}"
+    
+    @classmethod
+    def generer_code_unique(cls):
+        """Génère un code unique pour un ticket"""
+        import uuid
+        from django.utils import timezone
+        annee = timezone.now().year
+        # Générer un code aléatoire de 8 caractères
+        code_aleatoire = uuid.uuid4().hex[:8].upper()
+        code = f"TKT-{annee}-{code_aleatoire}"
+        # S'assurer que le code est unique
+        while cls.objects.filter(code_unique=code).exists():
+            code_aleatoire = uuid.uuid4().hex[:8].upper()
+            code = f"TKT-{annee}-{code_aleatoire}"
+        return code
+    
+    def marquer_utilise(self, beneficiaire=None):
+        """Marque le ticket comme utilisé"""
+        from django.utils import timezone
+        if self.statut != 'disponible':
+            raise ValueError(f"Le ticket {self.code_unique} n'est pas disponible (statut: {self.statut})")
+        self.statut = 'utilise'
+        self.date_utilisation = timezone.now()
+        if beneficiaire:
+            self.utilisateur_beneficiaire = beneficiaire
+        self.save()
+
+
+class LotTickets(models.Model):
+    """Lot de tickets générés ensemble"""
+    nom = models.CharField(
+        max_length=100,
+        help_text="Nom descriptif du lot (ex: 'Lot Janvier 2026')"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Description ou notes sur ce lot"
+    )
+    nombre_tickets = models.PositiveIntegerField(
+        help_text="Nombre de tickets dans ce lot"
+    )
+    date_validite = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date limite de validité des tickets"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='lots_tickets_created'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Lot de Tickets"
+        verbose_name_plural = "Lots de Tickets"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.nom} ({self.nombre_tickets} tickets)"
+    
+    @property
+    def tickets_disponibles(self):
+        """Retourne le nombre de tickets disponibles dans ce lot"""
+        return self.tickets.filter(statut='disponible').count()
+    
+    @property
+    def tickets_utilises(self):
+        """Retourne le nombre de tickets utilisés dans ce lot"""
+        return self.tickets.filter(statut='utilise').count()
+    
+    def generer_tickets(self):
+        """Génère les tickets pour ce lot"""
+        tickets_crees = []
+        for _ in range(self.nombre_tickets):
+            code = TicketRepas.generer_code_unique()
+            ticket = TicketRepas.objects.create(
+                code_unique=code,
+                lot=self,
+                statut='disponible'
+            )
+            tickets_crees.append(ticket)
+        return tickets_crees
+
