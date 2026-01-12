@@ -2523,7 +2523,7 @@ class LotTicketsViewSet(viewsets.ModelViewSet):
                 f"<font color='#FFFFFF'><b>TICKET REPAS</b></font><br/>"
                 f"<font color='#FFFFFF' size='12'><b>{ticket.code_unique}</b></font><br/>"
                 f"<font color='#FFFFFF' size='8'>Lot: {lot.nom}</font><br/>"
-                f"<font color='#FFFFFF' size='8'>Valide jusqu'au: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimité'}</font>",
+                f"<font color='#FFFFFF' size='8'>Valide jusqu'au: {ticket.expires_at.strftime('%d/%m/%Y %H:%M') if ticket.expires_at else '-'}</font>",
                 styles['Normal']
             )
 

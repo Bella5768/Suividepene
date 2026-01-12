@@ -443,12 +443,15 @@ class TicketRepasSerializer(serializers.ModelSerializer):
     """Serializer pour les tickets de repas"""
     statut_display = serializers.CharField(source='get_statut_display', read_only=True)
     lot_nom = serializers.CharField(source='lot.nom', read_only=True)
+    expires_at = serializers.DateTimeField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = TicketRepas
         fields = [
             'id', 'code_unique', 'lot', 'lot_nom', 'statut', 'statut_display',
-            'date_utilisation', 'utilisateur_beneficiaire', 'created_at', 'updated_at'
+            'date_utilisation', 'utilisateur_beneficiaire', 'created_at', 'updated_at',
+            'expires_at', 'is_expired'
         ]
         read_only_fields = ['code_unique', 'created_at', 'updated_at']
 

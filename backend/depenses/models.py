@@ -883,6 +883,29 @@ class TicketRepas(models.Model):
     
     def __str__(self):
         return f"{self.code_unique} - {self.get_statut_display()}"
+
+    @property
+    def expires_at(self):
+        from datetime import timedelta, datetime, time
+        from django.utils import timezone
+        if not self.created_at:
+            return None
+
+        expiration_24h = self.created_at + timedelta(hours=24)
+
+        lot_date = getattr(self.lot, 'date_validite', None)
+        if lot_date:
+            lot_exp = datetime.combine(lot_date, time(23, 59, 59))
+            lot_exp = timezone.make_aware(lot_exp) if timezone.is_naive(lot_exp) else lot_exp
+            return min(expiration_24h, lot_exp)
+
+        return expiration_24h
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        exp = self.expires_at
+        return bool(exp and timezone.now() > exp)
     
     @classmethod
     def generer_code_unique(cls):
@@ -904,6 +927,10 @@ class TicketRepas(models.Model):
         from django.utils import timezone
         if self.statut != 'disponible':
             raise ValueError(f"Le ticket {self.code_unique} n'est pas disponible (statut: {self.statut})")
+        if self.is_expired:
+            exp = self.expires_at
+            exp_str = exp.strftime('%d/%m/%Y %H:%M') if exp else ''
+            raise ValueError(f"Le ticket {self.code_unique} est expiré (valable jusqu'au {exp_str})")
         self.statut = 'utilise'
         self.date_utilisation = timezone.now()
         if beneficiaire:

@@ -521,11 +521,20 @@ async function rechercherTicket() {
   try {
     const ticket = await apiService.get(`/api/restauration/tickets/rechercher/?code=${encodeURIComponent(code)}`);
     ticketTrouve = ticket;
+
+    const expiresAt = ticket.expires_at ? new Date(ticket.expires_at) : null;
+    const expiresAtStr = expiresAt
+      ? expiresAt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '-';
     
     infoDiv.innerHTML = `
       <p><strong>Code:</strong> ${ticket.code_unique}</p>
       <p><strong>Lot:</strong> ${ticket.lot_nom}</p>
       <p><strong>Statut:</strong> ${getStatutBadge(ticket.statut)}</p>
+      <p><strong>Expiration (24h):</strong> ${expiresAtStr}</p>
+      ${ticket.is_expired ? `
+        <p style="color: #ef4444;"><strong>⛔ Ticket expiré</strong></p>
+      ` : ''}
       ${ticket.statut !== 'disponible' ? `
         <p style="color: #ef4444;"><strong>⚠️ Ce ticket ne peut pas être utilisé (${ticket.statut_display})</strong></p>
       ` : `
@@ -533,7 +542,7 @@ async function rechercherTicket() {
       `}
     `;
     infoDiv.style.display = 'block';
-    btnValider.disabled = ticket.statut !== 'disponible';
+    btnValider.disabled = ticket.statut !== 'disponible' || ticket.is_expired;
     
   } catch (error) {
     ticketTrouve = null;
@@ -546,7 +555,7 @@ async function rechercherTicket() {
 async function handleUtiliserTicket(e) {
   e.preventDefault();
   
-  if (!ticketTrouve || ticketTrouve.statut !== 'disponible') {
+  if (!ticketTrouve || ticketTrouve.statut !== 'disponible' || ticketTrouve.is_expired) {
     toast.error('Aucun ticket valide sélectionné');
     return;
   }
