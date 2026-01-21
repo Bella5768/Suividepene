@@ -21,6 +21,7 @@ import { renderRestaurationMenus } from '/static/depenses/js/pages/restauration-
 import { renderRestaurationCommandes } from '/static/depenses/js/pages/restauration-commandes.js';
 import { renderExtrasRestauration } from '/static/depenses/js/pages/extras-restauration.js';
 import { renderTableauBordCantine } from '/static/depenses/js/pages/tableau-bord-cantine.js';
+import { renderTicketsRepas } from '/static/depenses/js/pages/tickets-repas.js';
 import { renderCommanderPublic } from '/static/depenses/js/pages/commander-public.js';
 
 /**
@@ -176,6 +177,15 @@ async function init() {
     }
   }, true);
 
+  router.addRoute('/restauration/tickets', async () => {
+    if (await requireAuth()) {
+      const main = getMainContent();
+      if (main) {
+        await renderTicketsRepas();
+      }
+    }
+  }, true);
+
   router.addRoute('/tableau-bord-cantine', async () => {
     if (await requireAuth()) {
       const main = getMainContent();
@@ -185,12 +195,12 @@ async function init() {
     }
   }, true);
 
-  // Routes publiques
-  router.addRoute('/commander/:token', async (params) => {
+  // Routes publiques - capturer tout ce qui suit /commander/
+  router.addRouteWildcard('/commander/', async (token) => {
     const mainContent = document.getElementById('app');
     if (mainContent) {
       mainContent.innerHTML = '';
-      await renderCommanderPublic(params.token);
+      await renderCommanderPublic(token);
     }
   }, false);
 

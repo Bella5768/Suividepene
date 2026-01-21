@@ -107,6 +107,41 @@ class ApiService {
   }
 
   /**
+   * Récupérer un fichier blob (PDF, Excel, etc.)
+   */
+  async getBlob(endpoint) {
+    const url = getApiUrl(endpoint);
+    // Récupérer le token directement depuis localStorage
+    const token = localStorage.getItem('access_token');
+    
+    console.log('getBlob - URL:', url);
+    console.log('getBlob - Token présent:', !!token);
+
+    const headers = {
+      'Accept': 'application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, { 
+      method: 'GET', 
+      headers,
+      credentials: 'include'
+    });
+    
+    console.log('getBlob - Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('getBlob - Error:', errorText);
+      throw new Error(errorText || 'Erreur lors du téléchargement');
+    }
+    
+    return await response.blob();
+  }
+
+  /**
    * Télécharger un fichier (PDF, Excel, etc.)
    */
   async downloadFile(endpoint, filename) {

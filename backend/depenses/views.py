@@ -11,14 +11,15 @@ import calendar
 from .models import (
     Categorie, SousCategorie, Prevision, Operation, Imputation,
     Plat, Menu, MenuPlat, FenetreCommande, RegleSubvention, Commande, CommandeLigne, Facture,
-    ExtraRestauration
+    ExtraRestauration, TicketRepas, LotTickets
 )
 from .serializers import (
     CategorieSerializer, SousCategorieSerializer, PrevisionSerializer,
     OperationSerializer, ImputationSerializer,
     PlatSerializer, MenuSerializer, MenuPlatSerializer, FenetreCommandeSerializer,
     RegleSubventionSerializer, CommandeSerializer, CommandeLigneSerializer, CommandeCreateSerializer,
-    UserSerializer, UserPermissionSerializer, ExtraRestaurationSerializer
+    UserSerializer, UserPermissionSerializer, ExtraRestaurationSerializer,
+    TicketRepasSerializer, LotTicketsSerializer, LotTicketsCreateSerializer
 )
 from django.contrib.auth.models import User
 from .filters import OperationFilter, PrevisionFilter
@@ -32,6 +33,9 @@ from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
+from django.contrib.staticfiles import finders
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from audit.middleware import log_audit
@@ -95,13 +99,26 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def me(self, request):
         """Récupère les informations de l'utilisateur actuellement connecté"""
-        serializer = self.get_serializer(request.user)
-        data = serializer.data
-        # Toujours charger les permissions depuis la base de données pour être sûr
         from .models import UserPermission
+        
+        # Charger les permissions depuis la base de données
         permissions = UserPermission.objects.filter(utilisateur=request.user)
         permission_serializer = UserPermissionSerializer(permissions, many=True)
-        data['permissions'] = permission_serializer.data
+        
+        # Construire la réponse manuellement pour être sûr
+        data = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'is_staff': request.user.is_staff,
+            'is_superuser': request.user.is_superuser,
+            'is_active': request.user.is_active,
+            'permissions': permission_serializer.data,
+        }
+        
+        print(f"[ME] User: {request.user.username}, Permissions: {len(permission_serializer.data)}")
         return Response(data)
 
 
@@ -837,6 +854,10 @@ class ImputationViewSet(viewsets.ModelViewSet):
 
 
 class RapportViewSet(viewsets.ViewSet):
+    from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['get'])
@@ -1103,6 +1124,33 @@ class MenuViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
     
+    def create(self, request, *args, **kwargs):
+        """Créer un menu et ajouter automatiquement tous les plats actifs"""
+        response = super().create(request, *args, **kwargs)
+        
+        if response.status_code == 201:
+            # Récupérer le menu créé
+            menu_id = response.data.get('id')
+            menu = Menu.objects.get(pk=menu_id)
+            
+            # Ajouter tous les plats actifs au menu
+            plats_actifs = Plat.objects.filter(actif=True)
+            ordre = 0
+            for plat in plats_actifs:
+                MenuPlat.objects.create(
+                    menu=menu,
+                    plat=plat,
+                    prix_jour=plat.prix_standard,
+                    ordre=ordre
+                )
+                ordre += 1
+            
+            # Recharger le serializer avec les plats
+            serializer = self.get_serializer(menu)
+            return Response(serializer.data, status=201)
+        
+        return response
+    
     def get_queryset(self):
         """Filtrer par date_menu si fourni"""
         queryset = super().get_queryset()
@@ -1260,6 +1308,21 @@ class CommandeViewSet(viewsets.ModelViewSet):
     filterset_fields = ['date_commande', 'etat', 'utilisateur']
     ordering = ['-date_commande', '-created_at']
     
+    def perform_update(self, serializer):
+        """Envoyer un email de confirmation quand le gestionnaire valide la commande"""
+        ancien_etat = serializer.instance.etat
+        commande = serializer.save()
+        nouveau_etat = commande.etat
+        
+        # Si la commande passe de brouillon à validée, envoyer l'email
+        if ancien_etat == 'brouillon' and nouveau_etat == 'validee':
+            try:
+                email_result = envoyer_email_confirmation(commande)
+                if email_result and email_result.get('success'):
+                    print(f"[OK] Email de confirmation envoye a {email_result.get('email')}")
+            except Exception as e:
+                print(f"[ERREUR] Erreur lors de l'envoi de l'email: {e}")
+    
     def get_queryset(self):
         """Filtrer par utilisateur si non-admin et sans permission de validation"""
         queryset = super().get_queryset()
@@ -1350,12 +1413,12 @@ class CommandeViewSet(viewsets.ModelViewSet):
                         else:
                             # Si pas de fenêtre configurée, appliquer la limite par défaut de 13h00 GMT
                             from datetime import time
-                            heure_limite_public = time(13, 0, 0)
+                            heure_limite_public = time(18, 0, 0)
                             heure_actuelle = timezone.now().time()
                             if date_commande == timezone.now().date() and heure_actuelle > heure_limite_public:
                                 erreurs_fenetre.append(
                                     f"Fenêtre de commande fermée pour {menu_plat.plat.nom}. "
-                                    f"Heure limite: 13:00 GMT"
+                                    f"Heure limite: 18:00 GMT"
                                 )
                 except MenuPlat.DoesNotExist:
                     pass
@@ -1464,12 +1527,12 @@ class CommandeViewSet(viewsets.ModelViewSet):
                     else:
                         # Si pas de fenêtre configurée, appliquer la limite par défaut de 13h00 GMT
                         from datetime import time
-                        heure_limite_public = time(13, 0, 0)
+                        heure_limite_public = time(18, 0, 0)
                         heure_actuelle = timezone.now().time()
                         if commande.date_commande == timezone.now().date() and heure_actuelle > heure_limite_public:
                             erreurs_fenetre.append(
                                 f"Fenêtre de commande fermée pour {ligne.menu_plat.plat.nom}. "
-                                f"Heure limite: 13:00 GMT"
+                                f"Heure limite: 18:00 GMT"
                             )
             
             if erreurs_fenetre:
@@ -1715,19 +1778,8 @@ def commander_public(request, token):
         except Menu.DoesNotExist:
             return Response({'error': 'Menu non trouvé ou non publié'}, status=404)
     
-    # Vérifier la restriction horaire pour les commandes publiques (13h00 GMT)
-    heure_limite_public = time(13, 0, 0)
-    heure_actuelle = timezone.now().time()
-    
-    # Si la date de commande est aujourd'hui, vérifier l'heure
-    if menu.date_menu == timezone.now().date():
-        if heure_actuelle > heure_limite_public:
-            return Response({
-                'error': 'Les commandes publiques sont fermées',
-                'message': 'Les commandes publiques ne sont acceptées que jusqu\'à 13h00 GMT (heure de Conakry)',
-                'heure_limite': '13:00',
-                'heure_actuelle': heure_actuelle.strftime('%H:%M:%S')
-            }, status=403)
+    # Restriction horaire desactivee pour l'instant
+    # Les commandes sont acceptees a tout moment
     
     # Récupérer les données de la commande
     nom_employe = request.data.get('nom_employe', '')
@@ -1739,15 +1791,6 @@ def commander_public(request, token):
     
     if not lignes_data:
         return Response({'error': 'Aucune ligne de commande'}, status=400)
-    
-    # Limiter à un seul plat par commande
-    if len(lignes_data) > 1:
-        return Response({'error': 'Vous ne pouvez commander qu\'un seul plat par commande'}, status=400)
-    
-    # Vérifier que la quantité totale est de 1
-    quantite_totale = sum(int(ligne.get('quantite', 1)) for ligne in lignes_data)
-    if quantite_totale > 1:
-        return Response({'error': 'Vous ne pouvez commander qu\'un seul plat (quantité = 1)'}, status=400)
     
     try:
         with transaction.atomic():
@@ -1771,11 +1814,20 @@ def commander_public(request, token):
             )
             
             # Créer la commande (plusieurs personnes peuvent commander le même jour)
+            # Les commandes publiques sont en brouillon, le gestionnaire doit valider
             commande = Commande.objects.create(
                 utilisateur=user_anonyme,
                 date_commande=menu.date_menu,
-                etat='brouillon'
+                etat='brouillon'  # En attente de validation par le gestionnaire
             )
+            
+            # Variables pour calculer le supplément
+            # Subvention de 30000 GNF uniquement sur le 1er plat (1 seule unite)
+            # Les autres plats sont au prix complet
+            total_supplement = Decimal('0.00')
+            total_subvention = Decimal('0.00')
+            plats_avec_supplement = []
+            subvention_utilisee = False
             
             # Créer les lignes
             for ligne_data in lignes_data:
@@ -1790,12 +1842,34 @@ def commander_public(request, token):
                     if stock_restant is not None and quantite > stock_restant:
                         raise ValueError(f"Stock insuffisant pour {menu_plat.plat.nom}")
                     
-                    CommandeLigne.objects.create(
+                    ligne = CommandeLigne.objects.create(
                         commande=commande,
                         menu_plat=menu_plat,
                         quantite=quantite,
                         prix_unitaire=menu_plat.prix_jour
                     )
+                    
+                    # Calculer le supplement pour chaque unite
+                    for i in range(quantite):
+                        if not subvention_utilisee:
+                            # Premier plat: subvention de max 30000 GNF
+                            subvention = min(menu_plat.prix_jour, Decimal('30000.00'))
+                            total_subvention += subvention
+                            supplement_unite = menu_plat.prix_jour - subvention
+                            total_supplement += supplement_unite
+                            subvention_utilisee = True
+                        else:
+                            # Autres plats: prix complet a payer
+                            total_supplement += menu_plat.prix_jour
+                    
+                    # Ajouter aux plats avec supplement pour l'affichage
+                    if menu_plat.prix_jour > 30000 or quantite > 1 or len(lignes_data) > 1:
+                        plats_avec_supplement.append({
+                            'plat': menu_plat.plat.nom,
+                            'prix_reel': float(menu_plat.prix_jour),
+                            'quantite': quantite
+                        })
+                        
                 except MenuPlat.DoesNotExist:
                     raise ValueError(f"MenuPlat {menu_plat_id} non trouvé")
             
@@ -1803,15 +1877,26 @@ def commander_public(request, token):
             commande.calculer_montants()
             commande.save()
             
-            # Générer automatiquement la facture pour ce jour (si commande validée)
-            if commande.etat == 'validee':
-                try:
-                    generer_facture_journaliere(commande.date_commande)
-                except Exception as e:
-                    print(f"Erreur lors de la génération de la facture: {e}")
+            # Générer automatiquement la facture pour ce jour
+            try:
+                generer_facture_journaliere(commande.date_commande)
+            except Exception as e:
+                print(f"Erreur lors de la génération de la facture: {e}")
             
+            # L'email sera envoyé quand le gestionnaire validera la commande
+            # Pas d'envoi automatique à la création
+            
+            # Préparer la réponse avec les informations sur le supplément
             serializer = CommandeSerializer(commande)
-            return Response(serializer.data, status=201)
+            response_data = serializer.data
+            response_data['supplement_info'] = {
+                'total_supplement': float(total_supplement),
+                'plats_avec_supplement': plats_avec_supplement,
+                'message_supplement': f"Vous devez payer un supplément de {total_supplement:,.0f} GNF en espèces" if total_supplement > 0 else None
+            }
+            response_data['en_attente_validation'] = True
+            
+            return Response(response_data, status=201)
     
     except ValueError as e:
         return Response({'error': str(e)}, status=400)
@@ -2215,7 +2300,7 @@ def imprimer_facture(request, date_str):
 
 def envoyer_email_confirmation(commande):
     """Envoie un email de confirmation lorsqu'une commande est validée"""
-    print(f"📧 Tentative d'envoi d'email pour la commande #{commande.id}")
+    print(f"[EMAIL] Tentative d'envoi d'email pour la commande #{commande.id}")
     
     # Récupérer l'email de l'utilisateur
     email_destinataire = None
@@ -2226,76 +2311,65 @@ def envoyer_email_confirmation(commande):
         # Pour les commandes publiques, le nom est dans first_name
         nom_employe = commande.utilisateur.first_name or commande.utilisateur.username
         print(f"   Utilisateur: {commande.utilisateur.username}")
-        print(f"   Email trouvé: {email_destinataire}")
+        print(f"   Email trouve: {email_destinataire}")
         
-        # Si l'email est un email généré (commande publique), utiliser l'email fourni
+        # Si l'email est un email généré (commande publique), ne pas envoyer
         if email_destinataire and '@commande.local' in email_destinataire:
-            # Pour les commandes publiques, l'email réel devrait être dans l'email du User
-            # mais si c'est un email généré, on ne peut pas envoyer
-            # On vérifie si l'email semble valide
-            if '@commande.local' in email_destinataire:
-                # Ne pas envoyer d'email si c'est un email généré
-                print(f"   ⚠️ Email généré détecté, pas d'envoi")
-                return {'error': 'Email généré (@commande.local), pas d\'envoi possible', 'email': email_destinataire}
+            print(f"   [INFO] Email non fourni par l'utilisateur, pas d'envoi")
+            return {'success': False, 'error': 'Email non fourni', 'email': None}
     else:
-        print(f"   ⚠️ Aucun utilisateur associé à la commande")
-        return {'error': 'Aucun utilisateur associé à la commande', 'email': None}
+        print(f"   [INFO] Aucun utilisateur associe a la commande")
+        return {'success': False, 'error': 'Aucun utilisateur associé à la commande', 'email': None}
     
     # Si pas d'email valide, ne pas envoyer
     if not email_destinataire or not email_destinataire.strip() or '@' not in email_destinataire:
-        print(f"   ⚠️ Email invalide ou manquant: {email_destinataire}")
-        return {'error': 'Aucun email valide trouvé', 'email': email_destinataire or 'N/A'}
+        print(f"   [INFO] Email invalide ou manquant: {email_destinataire}")
+        return {'success': False, 'error': 'Aucun email valide trouve', 'email': email_destinataire or 'N/A'}
     
-    print(f"   ✅ Email valide: {email_destinataire}")
+    print(f"   [OK] Email valide: {email_destinataire}")
     
     # Préparer les données pour le template
+    # Nouvelle logique: subvention de 30000 GNF uniquement sur le 1er plat
     lignes = []
-    total_supplement = 0
-    total_plats_simple = 0  # Total des plats <= 30 000 GNF
+    total_prix = 0
+    total_subvention = 0
+    total_a_payer = 0
+    subvention_utilisee = False
     
     for ligne in commande.lignes.all():
         prix_unitaire = float(ligne.prix_unitaire)
         
-        if prix_unitaire > 30000:
-            # Pour les plats > 30 000 GNF, on calcule seulement le supplément
-            supplement_ligne = (prix_unitaire - 30000) * ligne.quantite
-            total_supplement += supplement_ligne
-            lignes.append({
-                'plat_nom': ligne.menu_plat.plat.nom,
-                'quantite': ligne.quantite,
-                'prix_unitaire': f"{prix_unitaire:,.0f}",
-                'montant_ligne': f"{ligne.montant_ligne:,.0f}",
-                'supplement': f"{supplement_ligne:,.0f}",
-                'depasse_30000': True,
-            })
-        else:
-            # Pour les plats <= 30 000 GNF, on affiche le montant normal
-            total_plats_simple += float(ligne.montant_ligne)
-            lignes.append({
-                'plat_nom': ligne.menu_plat.plat.nom,
-                'quantite': ligne.quantite,
-                'prix_unitaire': f"{prix_unitaire:,.0f}",
-                'montant_ligne': f"{ligne.montant_ligne:,.0f}",
-                'supplement': 0,
-                'depasse_30000': False,
-            })
+        for i in range(ligne.quantite):
+            if not subvention_utilisee:
+                # Premier plat: subvention de max 30000 GNF
+                subvention = min(prix_unitaire, 30000)
+                total_subvention += subvention
+                a_payer_unite = prix_unitaire - subvention
+                total_a_payer += a_payer_unite
+                subvention_utilisee = True
+            else:
+                # Autres plats: prix complet
+                total_a_payer += prix_unitaire
+            total_prix += prix_unitaire
+        
+        lignes.append({
+            'plat_nom': ligne.menu_plat.plat.nom,
+            'quantite': ligne.quantite,
+            'prix_unitaire': f"{prix_unitaire:,.0f}",
+            'montant_ligne': f"{prix_unitaire * ligne.quantite:,.0f}",
+        })
     
-    # Calculer le montant net à payer selon les règles
-    # Si seulement des plats simples (<= 30 000), montant_net = total_plats_simple
-    # Si seulement des plats avec supplément, montant_net = total_supplement
-    # Si mixte, montant_net = total_plats_simple + total_supplement
-    montant_net_a_payer = total_plats_simple + total_supplement
+    montant_net_a_payer = total_a_payer
     
     context = {
         'nom_employe': nom_employe or commande.utilisateur.username if commande.utilisateur else 'Client',
         'date_commande': commande.date_commande.strftime('%d/%m/%Y'),
         'commande_id': commande.id,
         'lignes': lignes,
+        'total_prix': f"{total_prix:,.0f}",
+        'total_subvention': f"{total_subvention:,.0f}",
         'montant_net_a_payer': f"{montant_net_a_payer:,.0f}",
-        'total_plats_simple': f"{total_plats_simple:,.0f}",
-        'total_supplement': f"{total_supplement:,.0f}",
-        'a_supplement': total_supplement > 0,
-        'a_plats_simples': total_plats_simple > 0,
+        'a_payer': montant_net_a_payer > 0,
     }
     
     # Rendre le template HTML
@@ -2312,7 +2386,7 @@ def envoyer_email_confirmation(commande):
     print(f"      From: {settings.DEFAULT_FROM_EMAIL or 'support@csig.edu.gn'}")
     
     try:
-        print(f"   📤 Envoi de l'email en cours...")
+        print(f"   [ENVOI] Envoi de l'email en cours...")
         send_mail(
             subject=f'Confirmation de commande #{commande.id} - CSIG',
             message=plain_message,
@@ -2321,13 +2395,318 @@ def envoyer_email_confirmation(commande):
             html_message=html_message,
             fail_silently=False,
         )
-        print(f"   ✅ Email envoyé avec succès à {email_destinataire}")
+        print(f"   [OK] Email envoye avec succes a {email_destinataire}")
         return {'success': True, 'email': email_destinataire}
     except Exception as e:
         import traceback
         error_msg = f"Erreur SMTP: {str(e)}"
-        print(f"   ❌ ERREUR: {error_msg}")
-        print(f"   Détails:")
+        print(f"   [ERREUR] {error_msg}")
+        print(f"   Details:")
         print(traceback.format_exc())
-        return {'error': error_msg, 'email': email_destinataire}
+        return {'success': False, 'error': error_msg, 'email': email_destinataire}
+
+
+class LotTicketsViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les lots de tickets"""
+    queryset = LotTickets.objects.all()
+    serializer_class = LotTicketsSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=False, methods=['post'])
+    def generer(self, request):
+        """Générer un nouveau lot de tickets"""
+        create_serializer = LotTicketsCreateSerializer(data=request.data)
+        if not create_serializer.is_valid():
+            return Response(create_serializer.errors, status=400)
+        
+        data = create_serializer.validated_data
+        
+        try:
+            with transaction.atomic():
+                # Créer le lot
+                lot = LotTickets.objects.create(
+                    nom=data['nom'],
+                    description=data.get('description', ''),
+                    nombre_tickets=data['nombre_tickets'],
+                    date_validite=data.get('date_validite'),
+                    created_by=request.user
+                )
+                
+                # Générer les tickets
+                lot.generer_tickets()
+                
+                if request.user.is_authenticated:
+                    log_audit('create', request.user, lot, metadata={
+                        'type': 'lot_tickets',
+                        'nombre_tickets': data['nombre_tickets']
+                    })
+                
+                serializer = LotTicketsSerializer(lot)
+                return Response(serializer.data, status=201)
+        
+        except Exception as e:
+            return Response({'error': f'Erreur lors de la génération: {str(e)}'}, status=500)
+    
+    @action(detail=True, methods=['get'])
+    def tickets(self, request, pk=None):
+        """Récupérer tous les tickets d'un lot"""
+        lot = self.get_object()
+        tickets = lot.tickets.all()
+        
+        # Filtrer par statut si demandé
+        statut = request.query_params.get('statut')
+        if statut:
+            tickets = tickets.filter(statut=statut)
+        
+        serializer = TicketRepasSerializer(tickets, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def imprimer(self, request, pk=None):
+        """Générer un PDF avec les tickets du lot pour impression"""
+        lot = self.get_object()
+        tickets = lot.tickets.filter(statut='disponible')
+        
+        # Créer le PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="tickets_{lot.nom}_{lot.id}.pdf"'
+        
+        doc = SimpleDocTemplate(response, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Logo CSIG (si disponible via staticfiles)
+        logo_path = finders.find('depenses/assets/logocsig.png')
+
+        # En-tête (logo + titre)
+        header_logo = ''
+        if logo_path:
+            try:
+                header_logo = Image(logo_path, width=55, height=55)
+            except Exception:
+                header_logo = ''
+
+        titre = Paragraph(f"<b>Tickets de Repas - {lot.nom}</b>", styles['Title'])
+        header = Table([[header_logo, titre]], colWidths=[70, 470])
+        header.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(header)
+        elements.append(Spacer(1, 10))
+        
+        # Info du lot
+        info = Paragraph(
+            f"Date de génération: {lot.created_at.strftime('%d/%m/%Y %H:%M')}<br/>"
+            f"Nombre de tickets: {tickets.count()}<br/>"
+            f"Date de validité: {lot.date_validite.strftime('%d/%m/%Y') if lot.date_validite else 'Illimitée'}",
+            styles['Normal']
+        )
+        elements.append(info)
+        elements.append(Spacer(1, 24))
+        
+        csig_blue = colors.HexColor('#0B3D91')
+
+        # Tickets en grille (4 par ligne), fond blanc
+        ticket_data = []
+        row = []
+
+        ticket_w = 132
+        ticket_h = 132
+
+        for ticket in tickets:
+            # QR Code avec le code unique
+            qr_widget = QrCodeWidget(ticket.code_unique)
+            qr_size = 42
+            qr_drawing = Drawing(qr_size, qr_size)
+            qr_drawing.add(qr_widget)
+            bounds = qr_widget.getBounds()
+            width = bounds[2] - bounds[0]
+            height = bounds[3] - bounds[1]
+            if width and height:
+                qr_drawing.scale(qr_size / width, qr_size / height)
+
+            logo_small = ''
+            if logo_path:
+                try:
+                    logo_small = Image(logo_path, width=18, height=18)
+                except Exception:
+                    logo_small = ''
+
+            header_line = Table(
+                [[logo_small, Paragraph("<font color='#0B3D91'><b>TICKET REPAS</b></font>", styles['Normal'])]],
+                colWidths=[20, ticket_w - 20],
+            )
+            header_line.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+
+            code_p = Paragraph(
+                f"<font size='10'><b>{ticket.code_unique}</b></font>",
+                styles['Normal']
+            )
+            lot_p = Paragraph(
+                f"<font size='7'>Lot: {lot.nom}</font>",
+                styles['Normal']
+            )
+            exp_p = Paragraph(
+                f"<font size='7'>Valide jusqu'au: {ticket.expires_at.strftime('%d/%m/%Y %H:%M') if ticket.expires_at else '-'}</font>",
+                styles['Normal']
+            )
+
+            qr_box = Table([[qr_drawing]], colWidths=[54], rowHeights=[54])
+            qr_box.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, 0), colors.white),
+                ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+                ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (0, 0), 2),
+                ('RIGHTPADDING', (0, 0), (0, 0), 2),
+                ('TOPPADDING', (0, 0), (0, 0), 2),
+                ('BOTTOMPADDING', (0, 0), (0, 0), 2),
+            ]))
+
+            ticket_box = Table(
+                [[header_line], [code_p], [lot_p], [exp_p], [qr_box]],
+                colWidths=[ticket_w],
+                rowHeights=[18, 16, 12, 12, 60],
+            )
+            ticket_box.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 0, colors.white),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (0, 4), (0, 4), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('LINEBELOW', (0, 0), (0, 0), 1, csig_blue),
+            ]))
+
+            outer = Table([[ticket_box]], colWidths=[ticket_w], rowHeights=[ticket_h])
+            outer.setStyle(TableStyle([
+                ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+
+            row.append(outer)
+            if len(row) == 4:
+                ticket_data.append(row)
+                row = []
+
+        if row:
+            while len(row) < 4:
+                row.append('')
+            ticket_data.append(row)
+
+        if ticket_data:
+            tickets_table = Table(ticket_data, colWidths=[ticket_w] * 4)
+            tickets_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ]))
+            elements.append(tickets_table)
+        
+        doc.build(elements)
+        return response
+
+
+class TicketRepasViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les tickets individuels"""
+    queryset = TicketRepas.objects.all()
+    serializer_class = TicketRepasSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['statut', 'lot']
+    
+    @action(detail=False, methods=['get'])
+    def rechercher(self, request):
+        """Rechercher un ticket par son code"""
+        code = request.query_params.get('code')
+        if not code:
+            return Response({'error': 'Le paramètre "code" est requis'}, status=400)
+        
+        try:
+            ticket = TicketRepas.objects.get(code_unique__iexact=code)
+            serializer = TicketRepasSerializer(ticket)
+            return Response(serializer.data)
+        except TicketRepas.DoesNotExist:
+            return Response({'error': 'Ticket non trouvé'}, status=404)
+    
+    @action(detail=True, methods=['post'])
+    def utiliser(self, request, pk=None):
+        """Marquer un ticket comme utilisé"""
+        ticket = self.get_object()
+        beneficiaire = request.data.get('beneficiaire', '')
+        
+        try:
+            ticket.marquer_utilise(beneficiaire=beneficiaire)
+            
+            if request.user.is_authenticated:
+                log_audit('update', request.user, ticket, metadata={
+                    'action': 'ticket_utilise',
+                    'beneficiaire': beneficiaire
+                })
+            
+            serializer = TicketRepasSerializer(ticket)
+            return Response(serializer.data)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
+    
+    @action(detail=True, methods=['post'])
+    def annuler(self, request, pk=None):
+        """Annuler un ticket"""
+        ticket = self.get_object()
+        
+        if ticket.statut == 'utilise':
+            return Response({'error': 'Impossible d\'annuler un ticket déjà utilisé'}, status=400)
+        
+        ticket.statut = 'annule'
+        ticket.save()
+        
+        if request.user.is_authenticated:
+            log_audit('update', request.user, ticket, metadata={'action': 'ticket_annule'})
+        
+        serializer = TicketRepasSerializer(ticket)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistiques(self, request):
+        """Obtenir des statistiques sur les tickets"""
+        stats = {
+            'total': TicketRepas.objects.count(),
+            'disponibles': TicketRepas.objects.filter(statut='disponible').count(),
+            'utilises': TicketRepas.objects.filter(statut='utilise').count(),
+            'annules': TicketRepas.objects.filter(statut='annule').count(),
+        }
+        
+        # Stats par lot
+        lots_stats = LotTickets.objects.annotate(
+            nb_disponibles=Count('tickets', filter=Q(tickets__statut='disponible')),
+            nb_utilises=Count('tickets', filter=Q(tickets__statut='utilise')),
+        ).values('id', 'nom', 'nombre_tickets', 'nb_disponibles', 'nb_utilises')
+        
+        stats['par_lot'] = list(lots_stats)
+        
+        return Response(stats)
 

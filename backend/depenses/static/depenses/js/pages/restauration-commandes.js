@@ -9,6 +9,8 @@ import { getMainContent } from '/static/depenses/js/layout.js';
 
 let commandes = [];
 let selectedDate = new Date().toISOString().split('T')[0];
+let dateDebut = selectedDate;
+let dateFin = selectedDate;
 
 export async function renderRestaurationCommandes() {
   const main = getMainContent();
@@ -28,13 +30,19 @@ export async function renderRestaurationCommandes() {
       </div>
       
       <div class="card filters-card">
-        <div class="filters-row">
+        <div class="filters-row" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
           <div class="filter-group">
-            <label>Date</label>
-            <input type="date" id="filter-date" class="form-input" value="${selectedDate}" />
+            <label>Date debut</label>
+            <input type="date" id="filter-date-debut" class="form-input" value="${selectedDate}" />
           </div>
-          <div class="filter-group filter-actions">
+          <div class="filter-group">
+            <label>Date fin</label>
+            <input type="date" id="filter-date-fin" class="form-input" value="${selectedDate}" />
+          </div>
+          <div class="filter-group filter-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="btn-filter">Afficher</button>
+            <button class="btn" id="btn-export-excel" style="background: #10b981; color: white; border: none;">Excel</button>
+            <button class="btn" id="btn-export-pdf" style="background: #ef4444; color: white; border: none;">PDF</button>
           </div>
         </div>
       </div>
@@ -56,7 +64,14 @@ async function loadCommandes() {
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
-    const data = await apiService.get(`/api/restauration/commandes/?date_commande=${selectedDate}`);
+    // Charger les commandes pour la plage de dates
+    let url = `/api/restauration/commandes/?`;
+    if (dateDebut === dateFin) {
+      url += `date_commande=${dateDebut}`;
+    } else {
+      url += `date_commande__gte=${dateDebut}&date_commande__lte=${dateFin}`;
+    }
+    const data = await apiService.get(url);
     commandes = Array.isArray(data) ? data : (data.results || []);
     renderCommandesTable();
   } catch (error) {
@@ -85,13 +100,17 @@ function renderCommandesTable() {
     return;
   }
 
-  const totalBrut = commandes.reduce((sum, c) => sum + parseFloat(c.montant_brut || 0), 0);
-  const totalNet = commandes.reduce((sum, c) => sum + parseFloat(c.montant_net || 0), 0);
+  const totalPrixReel = commandes.reduce((sum, c) => sum + parseFloat(c.prix_reel_total || 0), 0);
+  const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.subvention_calculee || 0), 0);
+  const totalAPayer = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
 
   content.innerHTML = `
     <div class="card">
-      <div class="table-header">
-        <span>${commandes.length} commande(s) - Total brut: ${formatGNF(totalBrut)} | Net: ${formatGNF(totalNet)}</span>
+      <div class="table-header" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <span><strong>${commandes.length}</strong> commande(s)</span>
+        <span>Prix total: <strong>${formatGNF(totalPrixReel)}</strong></span>
+        <span>Subvention: <strong style="color: #10b981;">-${formatGNF(totalSubvention)}</strong></span>
+        <span>A payer: <strong style="color: #f59e0b;">${formatGNF(totalAPayer)}</strong></span>
       </div>
       <div class="table-responsive">
         <table class="table">
@@ -99,21 +118,25 @@ function renderCommandesTable() {
             <tr>
               <th>Utilisateur</th>
               <th>Plats</th>
-              <th>Montant brut</th>
+              <th>Prix</th>
               <th>Subvention</th>
-              <th>Montant net</th>
+              <th>A payer</th>
               <th>État</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${commandes.map(cmd => `
+            ${commandes.map(cmd => {
+              const prixReel = parseFloat(cmd.prix_reel_total || 0);
+              const subvention = parseFloat(cmd.subvention_calculee || 0);
+              const aPayer = parseFloat(cmd.supplement_total || 0);
+              return `
               <tr>
                 <td><strong>${cmd.utilisateur_nom || cmd.utilisateur}</strong></td>
                 <td>${cmd.lignes?.length || 0} plat(s)</td>
-                <td>${formatGNF(cmd.montant_brut)}</td>
-                <td>${formatGNF(cmd.montant_subvention)}</td>
-                <td><strong>${formatGNF(cmd.montant_net)}</strong></td>
+                <td>${formatGNF(prixReel)}</td>
+                <td style="color: #10b981;"><strong>-${formatGNF(subvention)}</strong></td>
+                <td style="color: ${aPayer > 0 ? '#f59e0b' : '#64748b'};">${aPayer > 0 ? formatGNF(aPayer) : '-'}</td>
                 <td>${getEtatBadge(cmd.etat)}</td>
                 <td>
                   ${cmd.etat === 'brouillon' ? `<button class="btn btn-sm btn-success" data-validate="${cmd.id}">Valider</button>` : ''}
@@ -121,7 +144,7 @@ function renderCommandesTable() {
                   ${cmd.etat !== 'livree' ? `<button class="btn btn-sm btn-danger" data-cancel="${cmd.id}">Annuler</button>` : ''}
                 </td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       </div>
@@ -143,9 +166,131 @@ function getEtatBadge(etat) {
 
 function attachEvents() {
   document.getElementById('btn-filter')?.addEventListener('click', () => {
-    selectedDate = document.getElementById('filter-date').value;
+    dateDebut = document.getElementById('filter-date-debut').value;
+    dateFin = document.getElementById('filter-date-fin').value;
     loadCommandes();
   });
+  
+  document.getElementById('btn-export-excel')?.addEventListener('click', exportExcel);
+  document.getElementById('btn-export-pdf')?.addEventListener('click', exportPDF);
+}
+
+function exportExcel() {
+  if (commandes.length === 0) {
+    toast.error('Aucune commande a exporter');
+    return;
+  }
+  
+  // Creer le CSV
+  const headers = ['Date', 'Utilisateur', 'Plats', 'Prix Reel', 'Subvention', 'Supplement', 'Etat'];
+  const rows = commandes.map(cmd => [
+    cmd.date_commande,
+    cmd.utilisateur_nom || cmd.utilisateur,
+    cmd.lignes?.map(l => l.plat_nom || l.menu_plat_nom).join(', ') || '',
+    parseFloat(cmd.prix_reel_total || 0),
+    parseFloat(cmd.montant_subvention || 0),
+    parseFloat(cmd.supplement_total || 0),
+    cmd.etat
+  ]);
+  
+  // Totaux
+  const totalPrixReel = commandes.reduce((sum, c) => sum + parseFloat(c.prix_reel_total || 0), 0);
+  const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.montant_subvention || 0), 0);
+  const totalSupplement = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
+  rows.push(['', '', 'TOTAL:', totalPrixReel, totalSubvention, totalSupplement, '']);
+  
+  // Creer le CSV avec BOM pour Excel
+  const BOM = '\uFEFF';
+  const csvContent = BOM + [headers, ...rows].map(row => 
+    row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')
+  ).join('\n');
+  
+  // Telecharger
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `commandes_${dateDebut}_${dateFin}.csv`;
+  link.click();
+  toast.success('Export Excel telecharge');
+}
+
+function exportPDF() {
+  if (commandes.length === 0) {
+    toast.error('Aucune commande a exporter');
+    return;
+  }
+  
+  const totalPrixReel = commandes.reduce((sum, c) => sum + parseFloat(c.prix_reel_total || 0), 0);
+  const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.montant_subvention || 0), 0);
+  const totalSupplement = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Rapport Commandes - ${dateDebut} au ${dateFin}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #124684; text-align: center; }
+        .info { text-align: center; margin-bottom: 20px; color: #64748b; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #124684; color: white; padding: 10px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #ddd; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .total { font-weight: bold; background: #e5e7eb !important; }
+        .montant { text-align: right; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>CSIG - Rapport des Commandes</h1>
+      <p class="info">Periode: ${dateDebut} au ${dateFin} | ${commandes.length} commande(s)</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Utilisateur</th>
+            <th>Plats</th>
+            <th class="montant">Prix Reel</th>
+            <th class="montant">Subvention</th>
+            <th class="montant">Supplement</th>
+            <th>Etat</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${commandes.map(cmd => `
+            <tr>
+              <td>${cmd.date_commande}</td>
+              <td>${cmd.utilisateur_nom || cmd.utilisateur}</td>
+              <td>${cmd.lignes?.map(l => l.plat_nom || l.menu_plat_nom).join(', ') || ''}</td>
+              <td class="montant">${formatGNF(cmd.prix_reel_total || 0)}</td>
+              <td class="montant">${formatGNF(cmd.montant_subvention || 0)}</td>
+              <td class="montant">${formatGNF(cmd.supplement_total || 0)}</td>
+              <td>${cmd.etat}</td>
+            </tr>
+          `).join('')}
+          <tr class="total">
+            <td colspan="3">TOTAL</td>
+            <td class="montant">${formatGNF(totalPrixReel)}</td>
+            <td class="montant">${formatGNF(totalSubvention)}</td>
+            <td class="montant">${formatGNF(totalSupplement)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+  
+  // Ouvrir dans une nouvelle fenetre pour impression
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+  printWindow.onload = () => {
+    printWindow.print();
+  };
+  toast.success('PDF pret pour impression');
 }
 
 function attachTableEvents() {

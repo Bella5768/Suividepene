@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from .models import (
     Categorie, SousCategorie, Prevision, Operation, Imputation,
     Plat, Menu, MenuPlat, FenetreCommande, RegleSubvention, Commande, CommandeLigne, UserPermission,
-    ExtraRestauration
+    ExtraRestauration, TicketRepas, LotTickets
 )
 
 
@@ -17,21 +17,26 @@ class UserPermissionSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
-    permissions = UserPermissionSerializer(many=True, read_only=True)
-    permissions_data = serializers.ListField(
+    permissions_input = serializers.ListField(
         child=serializers.DictField(),
         write_only=True,
         required=False,
         help_text="Liste des permissions à créer/modifier"
     )
+    permissions = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'password', 'date_joined', 'last_login', 'permissions', 'permissions_data']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'password', 'date_joined', 'last_login', 'permissions', 'permissions_input']
         read_only_fields = ['date_joined', 'last_login']
     
+    def get_permissions(self, obj):
+        """Retourner les permissions sérialisées en lecture"""
+        permissions = UserPermission.objects.filter(utilisateur=obj)
+        return UserPermissionSerializer(permissions, many=True).data
+    
     def create(self, validated_data):
-        permissions_data = validated_data.pop('permissions_data', [])
+        permissions_data = validated_data.pop('permissions_input', [])
         password = validated_data.pop('password', None)
         user = User.objects.create(**validated_data)
         if password:
@@ -47,7 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
         return user
     
     def update(self, instance, validated_data):
-        permissions_data = validated_data.pop('permissions_data', None)
+        permissions_data = validated_data.pop('permissions_input', None)
         password = validated_data.pop('password', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -254,15 +259,53 @@ class CommandeSerializer(serializers.ModelSerializer):
     utilisateur_username = serializers.CharField(source='utilisateur.username', read_only=True)
     utilisateur_nom = serializers.SerializerMethodField()
     etat_display = serializers.CharField(source='get_etat_display', read_only=True)
+    prix_reel_total = serializers.SerializerMethodField()
+    supplement_total = serializers.SerializerMethodField()
+    subvention_calculee = serializers.SerializerMethodField()
     
     class Meta:
         model = Commande
         fields = [
             'id', 'utilisateur', 'utilisateur_username', 'utilisateur_nom', 'date_commande', 'etat', 'etat_display',
             'montant_brut', 'montant_subvention', 'montant_net',
+            'prix_reel_total', 'supplement_total', 'subvention_calculee',
             'operation', 'lignes', 'created_at', 'updated_at'
         ]
         read_only_fields = ['utilisateur', 'montant_brut', 'montant_subvention', 'montant_net', 'operation']
+    
+    def get_prix_reel_total(self, obj):
+        """Retourne le prix réel total des plats (sans plafond)"""
+        total = 0
+        for ligne in obj.lignes.all():
+            total += float(ligne.prix_unitaire) * ligne.quantite
+        return total
+    
+    def get_subvention_calculee(self, obj):
+        """Retourne la subvention (30000 GNF max sur le 1er plat uniquement)"""
+        lignes = list(obj.lignes.all())
+        if not lignes:
+            return 0
+        # Subvention sur le premier plat uniquement
+        premier_prix = float(lignes[0].prix_unitaire) if lignes else 0
+        return min(premier_prix, 30000)
+    
+    def get_supplement_total(self, obj):
+        """Retourne le montant a payer (subvention 30000 GNF uniquement sur le 1er plat)"""
+        total_a_payer = 0
+        subvention_utilisee = False
+        
+        for ligne in obj.lignes.all():
+            prix = float(ligne.prix_unitaire)
+            for i in range(ligne.quantite):
+                if not subvention_utilisee:
+                    # Premier plat: subvention de max 30000 GNF
+                    subvention = min(prix, 30000)
+                    total_a_payer += prix - subvention
+                    subvention_utilisee = True
+                else:
+                    # Autres plats: prix complet
+                    total_a_payer += prix
+        return total_a_payer
     
     def get_utilisateur_nom(self, obj):
         """Retourne le nom de l'utilisateur (first_name ou username)"""
@@ -394,5 +437,46 @@ class ExtraRestaurationSerializer(serializers.ModelSerializer):
                 instance.operation.save()
             
             return instance
+
+
+class TicketRepasSerializer(serializers.ModelSerializer):
+    """Serializer pour les tickets de repas"""
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    lot_nom = serializers.CharField(source='lot.nom', read_only=True)
+    expires_at = serializers.DateTimeField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    
+    class Meta:
+        model = TicketRepas
+        fields = [
+            'id', 'code_unique', 'lot', 'lot_nom', 'statut', 'statut_display',
+            'date_utilisation', 'utilisateur_beneficiaire', 'created_at', 'updated_at',
+            'expires_at', 'is_expired'
+        ]
+        read_only_fields = ['code_unique', 'created_at', 'updated_at']
+
+
+class LotTicketsSerializer(serializers.ModelSerializer):
+    """Serializer pour les lots de tickets"""
+    tickets_disponibles = serializers.IntegerField(read_only=True)
+    tickets_utilises = serializers.IntegerField(read_only=True)
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = LotTickets
+        fields = [
+            'id', 'nom', 'description', 'nombre_tickets', 'date_validite',
+            'tickets_disponibles', 'tickets_utilises',
+            'created_by', 'created_by_username', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
+
+class LotTicketsCreateSerializer(serializers.Serializer):
+    """Serializer pour créer un lot de tickets"""
+    nom = serializers.CharField(max_length=100)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    nombre_tickets = serializers.IntegerField(min_value=1, max_value=500)
+    date_validite = serializers.DateField(required=False, allow_null=True)
 
 

@@ -226,7 +226,10 @@ function renderOperationsTable() {
     <div class="card">
       <div class="table-header">
         <span>${operations.length} opération(s) - Total: ${formatGNF(totalMontant)}</span>
-        <button class="btn btn-outline btn-sm" id="btn-export">Exporter CSV</button>
+        <div class="export-buttons">
+          <button class="btn btn-outline btn-sm" id="btn-export-csv" style="background: #10b981; color: white; border: none;">📊 Excel</button>
+          <button class="btn btn-outline btn-sm" id="btn-export-pdf" style="background: #ef4444; color: white; border: none;">📄 PDF</button>
+        </div>
       </div>
       <div class="table-responsive">
         <table class="table">
@@ -342,7 +345,8 @@ function attachTableEvents() {
   });
 
   // Export
-  document.getElementById('btn-export')?.addEventListener('click', exportCSV);
+  document.getElementById('btn-export-csv')?.addEventListener('click', exportExcel);
+  document.getElementById('btn-export-pdf')?.addEventListener('click', exportPDF);
 }
 
 function openModal(operation = null) {
@@ -448,16 +452,115 @@ function resetFilters() {
   loadOperations();
 }
 
-async function exportCSV() {
+function exportExcel() {
   try {
-    let url = '/api/operations/export_csv/?';
-    if (filters.dateDebut) url += `date_debut=${filters.dateDebut}&`;
-    if (filters.dateFin) url += `date_fin=${filters.dateFin}&`;
-    if (filters.categorie) url += `categorie=${filters.categorie}&`;
+    // Créer le contenu CSV pour Excel
+    const headers = ['Date', 'Catégorie', 'Description', 'Unités', 'Prix Unitaire', 'Montant'];
+    const rows = operations.map(op => [
+      formatDate(op.date_operation),
+      op.categorie_nom || getCategorieNom(op.categorie),
+      op.description || '',
+      op.unites,
+      op.prix_unitaire,
+      op.montant_depense
+    ]);
     
-    window.open(url, '_blank');
+    // Ajouter le total
+    const totalMontant = operations.reduce((sum, op) => sum + parseFloat(op.montant_depense || 0), 0);
+    rows.push(['', '', '', '', 'TOTAL:', totalMontant]);
+    
+    // Créer le CSV avec BOM pour Excel
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(';')).join('\n');
+    
+    // Télécharger
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `operations_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    
+    toast.success('Export Excel téléchargé');
   } catch (error) {
-    toast.error('Erreur lors de l\'export');
+    console.error('Erreur export Excel:', error);
+    toast.error('Erreur lors de l\'export Excel');
+  }
+}
+
+function exportPDF() {
+  try {
+    // Créer le contenu HTML pour le PDF
+    const totalMontant = operations.reduce((sum, op) => sum + parseFloat(op.montant_depense || 0), 0);
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Rapport des Opérations</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #1e40af; text-align: center; }
+          .info { text-align: center; color: #666; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #1e40af; color: white; padding: 10px; text-align: left; }
+          td { padding: 8px; border-bottom: 1px solid #ddd; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .total { font-weight: bold; background: #e5e7eb !important; }
+          .montant { text-align: right; }
+          @media print { body { margin: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>Rapport des Opérations</h1>
+        <p class="info">Généré le ${new Date().toLocaleDateString('fr-FR')} - ${operations.length} opération(s)</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Catégorie</th>
+              <th>Description</th>
+              <th>Unités</th>
+              <th>Prix Unit.</th>
+              <th>Montant</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${operations.map(op => `
+              <tr>
+                <td>${formatDate(op.date_operation)}</td>
+                <td>${op.categorie_nom || getCategorieNom(op.categorie)}</td>
+                <td>${op.description || '-'}</td>
+                <td>${op.unites}</td>
+                <td class="montant">${formatGNF(op.prix_unitaire)}</td>
+                <td class="montant">${formatGNF(op.montant_depense)}</td>
+              </tr>
+            `).join('')}
+            <tr class="total">
+              <td colspan="5">TOTAL</td>
+              <td class="montant">${formatGNF(totalMontant)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+    
+    // Ouvrir dans une nouvelle fenêtre pour impression/PDF
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    // Lancer l'impression automatiquement
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+    
+    toast.success('PDF prêt à imprimer');
+  } catch (error) {
+    console.error('Erreur export PDF:', error);
+    toast.error('Erreur lors de l\'export PDF');
   }
 }
 

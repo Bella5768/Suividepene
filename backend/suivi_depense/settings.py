@@ -26,7 +26,8 @@ if not SECRET_KEY:
     )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+# Par défaut, activer DEBUG en développement local
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,bella5768.pythonanywhere.com', cast=lambda v: [s.strip() for s in v.split(',')])
 
@@ -186,6 +187,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
@@ -215,18 +217,25 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = [
-    'https://suividepenecsig.vercel.app',
-    'https://bella5768.pythonanywhere.com',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://127.0.0.1:3002',
-    'http://127.0.0.1:5173',
-]
+# Toujours autoriser les origines localhost en développement
+_default_cors_origins = 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:5173,https://suividepenecsig.vercel.app,https://bella5768.pythonanywhere.com'
+
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS',
+        default=_default_cors_origins,
+        cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
+    )
+else:
+    # En production, utiliser la variable d'environnement ou les origines par défaut si non définie
+    cors_origins_env = config('CORS_ALLOWED_ORIGINS', default=_default_cors_origins, cast=lambda v: v)
+    CORS_ALLOWED_ORIGINS = [s.strip() for s in cors_origins_env.split(',') if s.strip()]
+    if not CORS_ALLOWED_ORIGINS or CORS_ALLOWED_ORIGINS == [s.strip() for s in _default_cors_origins.split(',') if s.strip()]:
+        import warnings
+        warnings.warn(
+            "CORS_ALLOWED_ORIGINS not configured for production. Using localhost origins. Set CORS_ALLOWED_ORIGINS environment variable.",
+            RuntimeWarning
+        )
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -277,22 +286,13 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
 # Email Configuration - Outlook/Office 365 (CSIG)
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = config('EMAIL_HOST', default='smtp.office365.com')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='support@csig.edu.gn')
-SERVER_EMAIL = config('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
-
-# Validate email configuration in production
-if not DEBUG and EMAIL_BACKEND.endswith('smtp.EmailBackend'):
-    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
-        import warnings
-        warnings.warn(
-            "Email credentials not configured. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD environment variables.",
-            RuntimeWarning
-        )
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.office365.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='support@csig.edu.gn')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='gnnthnprwdlklnfd')
+DEFAULT_FROM_EMAIL = 'support@csig.edu.gn'
+SERVER_EMAIL = 'support@csig.edu.gn'
 

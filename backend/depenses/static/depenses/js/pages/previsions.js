@@ -144,6 +144,7 @@ async function loadPrevisions() {
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
+    // Le champ mois est une string, utiliser le format YYYY-MM-DD
     const moisDate = `${selectedMois}-01`;
     const data = await apiService.get(`/api/previsions/?mois=${moisDate}`);
     previsions = Array.isArray(data) ? data : (data.results || []);
@@ -153,6 +154,7 @@ async function loadPrevisions() {
     content.innerHTML = `
       <div class="card error-card">
         <p>Erreur lors du chargement des prévisions.</p>
+        <p style="font-size: 0.9em; color: #64748b;">Détail: ${error.message || 'Erreur inconnue'}</p>
         <button class="btn btn-primary" onclick="location.reload()">Réessayer</button>
       </div>
     `;

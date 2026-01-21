@@ -5,12 +5,15 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from depenses.views_frontend import index, get_token
+from depenses.views_frontend import index, get_token, export_rapport_pdf, export_rapport_excel
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('depenses.urls_auth')),
     path('api/auth/token-django/', get_token, name='django-token'),
+    # Routes d'export avec authentification Django (login_required)
+    path('export/rapport/pdf/', export_rapport_pdf, name='export-rapport-pdf'),
+    path('export/rapport/excel/', export_rapport_excel, name='export-rapport-excel'),
     path('api/', include('depenses.urls')),
     path('', index, name='index'),
     path('login/', index, name='login'),
@@ -23,6 +26,7 @@ urlpatterns = [
     path('utilisateurs/', index, name='utilisateurs'),
     path('audit/', index, name='audit'),
     path('restauration/', index, name='restauration'),
+    path('restauration/tickets/', index, name='tickets-repas'),
     path('commander/<str:token>/', index, name='commander-public'),
     path('commander/', index, name='commander-aujourdhui'),  # Lien fixe pour le menu du jour
     path('tableau-bord-cantine/', index, name='tableau-bord-cantine'),

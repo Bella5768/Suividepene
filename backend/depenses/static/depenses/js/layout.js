@@ -224,6 +224,16 @@ function createSidebar() {
       `;
     }
 
+    if (hasPermission('operations')) {
+      menuItems += `
+        <li>
+          <a href="#" class="sidebar-item ${isActive('/restauration/tickets') ? 'active' : ''}" data-nav="/restauration/tickets">
+            🎫 Tickets Repas
+          </a>
+        </li>
+      `;
+    }
+
     if (hasPermission('restauration_menus')) {
       menuItems += `
         <li>
