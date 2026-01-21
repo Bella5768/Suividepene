@@ -105,30 +105,7 @@ function renderMenu() {
   const content = document.getElementById('commander-public-content');
   if (!content) return;
 
-  const totalPanier = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
-  
-  // Subvention de 30000 GNF uniquement sur le 1er plat (1 seule unite)
-  // Les autres plats et quantites supplementaires sont au prix complet
-  let subventionUtilisee = false;
-  let totalSubvention = 0;
-  let totalAPayer = 0;
-  
-  panier.forEach((item, index) => {
-    for (let i = 0; i < item.quantite; i++) {
-      if (!subventionUtilisee) {
-        // Premier plat: subvention de max 30000 GNF
-        const subvention = Math.min(item.prix, 30000);
-        totalSubvention += subvention;
-        totalAPayer += item.prix - subvention; // Supplement si > 30000
-        subventionUtilisee = true;
-      } else {
-        // Autres plats: prix complet a payer
-        totalAPayer += item.prix;
-      }
-    }
-  });
-  
-  const totalSupplement = totalAPayer;
+  // Pas de calcul de prix - affichage uniquement des plats
   
   // Extraire tous les plats de tous les menus
   const tousLesPlats = [];
@@ -157,31 +134,21 @@ function renderMenu() {
               <p style="color: #64748b;">Aucun plat disponible</p>
             </div>
           ` : tousLesPlats.map(plat => {
-            const aSupplementPayer = plat.prix > 30000;
-            const supplement = aSupplementPayer ? plat.prix - 30000 : 0;
             return `
-            <div class="card" style="padding: 1rem; border: 2px solid ${aSupplementPayer ? '#f59e0b' : '#e5e7eb'};">
+            <div class="card" style="padding: 1rem; border: 2px solid #e5e7eb;">
               <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem;">
                 <div style="flex: 1; min-width: 150px;">
                   <h3 style="color: #124684; font-size: 1.1rem; margin-bottom: 0.25rem;">${plat.nom}</h3>
                   ${plat.categorie ? `<span style="background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 8px; font-size: 0.75rem; color: #475569;">${plat.categorie}</span>` : ''}
-                  ${aSupplementPayer ? `
-                    <div style="margin-top: 0.5rem; padding: 0.4rem; background: #fef3c7; border-radius: 4px; font-size: 0.75rem; color: #92400e;">
-                      Supplement: ${formatGNF(supplement)}
-                    </div>
-                  ` : ''}
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-size: 1.2rem; font-weight: bold; color: #10b981; margin-bottom: 0.25rem;">
-                    ${formatGNF(plat.prix)}
-                  </div>
                   <button 
                     class="btn btn-primary" 
                     onclick="window.ajouterAuPanier(${plat.id}, '${plat.nom.replace(/'/g, "\\'").replace(/"/g, '')}', ${plat.prix})"
                     style="background: #124684; border: none; padding: 0.5rem 1rem; font-weight: bold; border-radius: 6px; font-size: 0.9rem;"
                     ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
                   >
-                    ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'Epuise' : 'Ajouter'}
+                    ${plat.stock_restant !== null && plat.stock_restant <= 0 ? 'Epuise' : 'Choisir'}
                   </button>
                 </div>
               </div>
@@ -206,38 +173,15 @@ function renderMenu() {
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                       <div style="font-weight: bold;">${item.nom}</div>
-                      <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">${formatGNF(item.prix)} × ${item.quantite}</div>
                     </div>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                      <button onclick="window.modifierQuantite(${index}, -1)" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold;">-</button>
-                      <span style="font-weight: bold;">${item.quantite}</span>
-                      <button onclick="window.modifierQuantite(${index}, 1)" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold;">+</button>
-                      <button onclick="window.retirerDuPanier(${index})" style="background: #ef4444; border: none; color: white; padding: 0.5rem; border-radius: 6px; cursor: pointer; margin-left: 0.5rem;">X</button>
+                      <button onclick="window.retirerDuPanier(${index})" style="background: #ef4444; border: none; color: white; padding: 0.5rem; border-radius: 6px; cursor: pointer;">Retirer</button>
                     </div>
                   </div>
                 </div>
               `).join('')}
             </div>
             
-            <div style="border-top: 2px solid rgba(255,255,255,0.3); padding-top: 1rem; margin-bottom: 1.5rem;">
-              <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem;">
-                <span>Prix total:</span>
-                <span>${formatGNF(totalPanier)}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 0.5rem; color: #10b981;">
-                <span>Subvention (1er plat uniquement):</span>
-                <span>-${formatGNF(totalSubvention)}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem; background: ${totalSupplement > 0 ? '#fef3c7' : 'rgba(255,255,255,0.1)'}; color: ${totalSupplement > 0 ? '#92400e' : 'white'}; padding: 0.75rem; border-radius: 6px;">
-                <span>A payer:</span>
-                <span>${formatGNF(totalSupplement)}</span>
-              </div>
-              ${totalSupplement > 0 ? `
-              <p style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
-                * La subvention de 30 000 GNF s'applique uniquement au 1er plat. Les autres plats sont au prix complet.
-              </p>
-              ` : ''}
-            </div>
             
             <div style="margin-bottom: 1rem;">
               <label style="display: block; margin-bottom: 0.5rem; color: rgba(255,255,255,0.9);">Votre nom complet *</label>
@@ -346,9 +290,6 @@ window.validerCommande = async function() {
     
     toast.success('Commande enregistree !');
     
-    // Recuperer les informations de supplement
-    const supplementInfo = response.supplement_info || {};
-    const totalSupplementConfirm = supplementInfo.total_supplement || 0;
     const nomSauvegarde = utilisateurNom;
     const emailFourni = document.getElementById('utilisateur-email')?.value.trim();
     
@@ -359,53 +300,25 @@ window.validerCommande = async function() {
     // Afficher message de confirmation
     const content = document.getElementById('commander-public-content');
     
-    // Message different selon si supplement ou pas
-    if (totalSupplementConfirm > 0) {
-      // Avec supplement: attente de validation
-      content.innerHTML = `
-        <div class="card" style="text-align: center; padding: 2rem; background: #124684; color: white;">
-          <h2 style="color: white; font-size: 1.8rem; margin-bottom: 1rem;">Commande en attente</h2>
-          <p style="color: rgba(255,255,255,0.9); font-size: 1rem; margin-bottom: 1rem;">
-            Merci <strong>${nomSauvegarde}</strong>, votre commande est en attente de validation.
+    content.innerHTML = `
+      <div class="card" style="text-align: center; padding: 2rem; background: #10b981; color: white;">
+        <h2 style="color: white; font-size: 1.8rem; margin-bottom: 1rem;">Commande enregistree !</h2>
+        <p style="color: rgba(255,255,255,0.9); font-size: 1rem; margin-bottom: 1rem;">
+          Merci <strong>${nomSauvegarde}</strong>, votre commande a ete enregistree avec succes.
+        </p>
+        <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
+          Votre repas sera pret pour le dejeuner.
+        </p>
+        ${emailFourni ? `
+          <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">
+            Confirmation envoyee a <strong>${emailFourni}</strong>.
           </p>
-          <div style="background: #fef3c7; color: #92400e; padding: 1.5rem; border-radius: 12px; margin: 1rem 0; text-align: left;">
-            <h3 style="color: #92400e; margin-bottom: 0.5rem;">Supplement a payer: ${formatGNF(totalSupplementConfirm)}</h3>
-            <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-              Contactez <strong>Hawa Bah</strong> au <a href="tel:+224620559464" style="color: #92400e; font-weight: bold;">620 55 94 64</a> pour le paiement.
-            </p>
-          </div>
-          ${emailFourni ? `
-            <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">
-              Email de confirmation a <strong>${emailFourni}</strong> apres validation.
-            </p>
-          ` : ''}
-          <button onclick="location.reload()" class="btn" style="background: white; color: #124684; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1rem; margin-top: 1rem; border-radius: 6px;">
-            Nouvelle commande
-          </button>
-        </div>
-      `;
-    } else {
-      // Sans supplement: commande directement enregistree
-      content.innerHTML = `
-        <div class="card" style="text-align: center; padding: 2rem; background: #10b981; color: white;">
-          <h2 style="color: white; font-size: 1.8rem; margin-bottom: 1rem;">Commande enregistree !</h2>
-          <p style="color: rgba(255,255,255,0.9); font-size: 1rem; margin-bottom: 1rem;">
-            Merci <strong>${nomSauvegarde}</strong>, votre commande a ete enregistree avec succes.
-          </p>
-          <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
-            Votre repas sera pret pour le dejeuner.
-          </p>
-          ${emailFourni ? `
-            <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">
-              Confirmation envoyee a <strong>${emailFourni}</strong>.
-            </p>
-          ` : ''}
-          <button onclick="location.reload()" class="btn" style="background: white; color: #10b981; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1rem; margin-top: 1rem; border-radius: 6px;">
-            Nouvelle commande
-          </button>
-        </div>
-      `;
-    }
+        ` : ''}
+        <button onclick="location.reload()" class="btn" style="background: white; color: #10b981; font-weight: bold; padding: 1rem 2rem; border: none; font-size: 1rem; margin-top: 1rem; border-radius: 6px;">
+          Nouvelle commande
+        </button>
+      </div>
+    `;
   } catch (error) {
     console.error('Erreur validation commande:', error);
     toast.error(error.message || 'Erreur lors de la validation de la commande');

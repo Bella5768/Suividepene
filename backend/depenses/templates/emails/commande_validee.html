@@ -54,12 +54,6 @@
             background-color: #f8f9fa;
             font-weight: bold;
         }
-        .total {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #007bff;
-            margin-top: 10px;
-        }
         .footer {
             text-align: center;
             padding: 20px;
@@ -95,52 +89,19 @@
                 </tr>
             </table>
             
-            <h4 style="margin-top: 20px;">Plats commandés :</h4>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Plat</th>
-                        <th>Quantite</th>
-                        <th>Prix unitaire</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ligne in lignes %}
-                    <tr>
-                        <td>{{ ligne.plat_nom }}</td>
-                        <td>{{ ligne.quantite }}</td>
-                        <td>{{ ligne.prix_unitaire }} GNF</td>
-                        <td>{{ ligne.montant_ligne }} GNF</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <div class="total">
-                <p>Prix total : {{ total_prix }} GNF</p>
-                <p style="color: #28a745;">Subvention (1er plat) : -{{ total_subvention }} GNF</p>
-                {% if a_payer %}
-                <p style="color: #dc3545; font-size: 1.3em; margin-top: 10px;">
-                    <strong>A payer : {{ montant_net_a_payer }} GNF</strong>
-                </p>
-                {% else %}
-                <p style="color: #28a745; font-size: 1.1em; margin-top: 10px;">
-                    <strong>Votre commande est entierement prise en charge.</strong>
-                </p>
-                {% endif %}
-            </div>
+            <h4 style="margin-top: 20px;">Plat(s) commandé(s) :</h4>
+            <ul style="list-style: none; padding: 0;">
+                {% for ligne in lignes %}
+                <li style="padding: 10px; background-color: #f8f9fa; margin-bottom: 5px; border-radius: 5px; font-weight: bold; color: #007bff;">
+                    {{ ligne.plat_nom }}
+                </li>
+                {% endfor %}
+            </ul>
         </div>
         
         <p style="margin-top: 20px;">
             <strong>Important :</strong> Votre commande a ete enregistree et sera preparee pour le {{ date_commande }}.
         </p>
-        
-        {% if a_payer %}
-        <p style="background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; margin-top: 15px;">
-            <strong>Information :</strong> La subvention de 30 000 GNF s'applique uniquement au 1er plat. Les autres plats sont au prix complet.
-        </p>
-        {% endif %}
         
         <p>Merci de votre confiance !</p>
         
