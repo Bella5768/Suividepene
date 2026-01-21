@@ -10,11 +10,11 @@ echo ========================================
 echo.
 
 REM Set paths
-set NODE_PATH=C:\wamp64\www\Suivi_depense\nodejs-portable
+set NODE_PATH=C:\wamp64\www\Suivi_depense\Suivi_depense\nodejs-portable
 set NODE_EXE=%NODE_PATH%\node.exe
 set NPM_CMD=%NODE_PATH%\npm.cmd
-set PYTHON_PATH=C:\wamp64\www\Suivi_depense\backend\venv\Scripts\python.exe
-set PROJECT_ROOT=C:\wamp64\www\Suivi_depense
+set PYTHON_PATH=C:\wamp64\www\Suivi_depense\Suivi_depense\backend\venv\Scripts\python.exe
+set PROJECT_ROOT=C:\wamp64\www\Suivi_depense\Suivi_depense
 
 REM Add Node.js to PATH
 set PATH=%NODE_PATH%;%PATH%
