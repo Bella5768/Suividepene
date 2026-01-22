@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Commandes</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Test API Commandes</h1>
+    <button onclick="testAPI()">Tester l'API des commandes</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="result">Chargement...</div>';
+            
+            try {
+                // Test de l'API commandes
+                const response = await fetch('http://localhost:8000/api/restauration/commandes/?limit=2');
+                const data = await response.json();
+                
+                let html = '<div class="result success">';
+                html += `<h3>Statut: ${response.status}</h3>`;
+                html += `<h4>Données reçues (${data.results ? data.results.length : data.length} commandes):</h4>`;
+                
+                const commandes = data.results || data;
+                
+                commandes.forEach((cmd, index) => {
+                    html += `<h5>Commande ${index + 1}:</h5>`;
+                    html += `<pre>ID: ${cmd.id}</pre>`;
+                    html += `<pre>Utilisateur: ${cmd.utilisateur_nom || cmd.utilisateur}</pre>`;
+                    html += `<pre>Date: ${cmd.date_commande}</pre>`;
+                    html += `<pre>Nombre de lignes: ${cmd.lignes ? cmd.lignes.length : 0}</pre>`;
+                    
+                    if (cmd.lignes && cmd.lignes.length > 0) {
+                        html += `<h6>Lignes de commande:</h6>`;
+                        cmd.lignes.forEach((ligne, i) => {
+                            html += `<pre>Ligne ${i+1}:</pre>`;
+                            html += `<pre>  plat_nom: ${ligne.plat_nom || 'N/A'}</pre>`;
+                            html += `<pre>  menu_plat_nom: ${ligne.menu_plat_nom || 'N/A'}</pre>`;
+                            html += `<pre>  quantite: ${ligne.quantite}</pre>`;
+                            html += `<pre>  menu_plat: ${JSON.stringify(ligne.menu_plat, null, 2)}</pre>`;
+                        });
+                    }
+                });
+                
+                html += '</div>';
+                resultDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">Erreur: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

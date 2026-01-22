@@ -100,6 +100,12 @@ function renderCommandesTable() {
     return;
   }
 
+  // Débogage: Afficher les premières commandes dans la console
+  console.log('Commandes reçues:', commandes.slice(0, 2));
+  if (commandes.length > 0 && commandes[0].lignes) {
+    console.log('Première commande lignes:', commandes[0].lignes);
+  }
+
   const totalPrixReel = commandes.reduce((sum, c) => sum + parseFloat(c.prix_reel_total || 0), 0);
   const totalSubvention = commandes.reduce((sum, c) => sum + parseFloat(c.subvention_calculee || 0), 0);
   const totalAPayer = commandes.reduce((sum, c) => sum + parseFloat(c.supplement_total || 0), 0);
@@ -133,7 +139,24 @@ function renderCommandesTable() {
               return `
               <tr>
                 <td><strong>${cmd.utilisateur_nom || cmd.utilisateur}</strong></td>
-                <td>${cmd.lignes?.map(l => l.plat_nom || 'Plat inconnu').join(', ') || 'Aucun plat'}</td>
+                <td>
+                  ${(() => {
+                    if (!cmd.lignes || cmd.lignes.length === 0) {
+                      return 'Aucun plat';
+                    }
+                    const plats = cmd.lignes.map(ligne => {
+                      // Essayer différentes sources pour le nom du plat
+                      const nom = ligne.plat_nom || 
+                                 ligne.menu_plat?.plat?.nom || 
+                                 ligne.menu_plat_nom || 
+                                 ligne.nom_plat ||
+                                 'Plat inconnu';
+                      return nom;
+                    });
+                    console.log('Plats pour commande:', plats);
+                    return plats.join(', ');
+                  })()}
+                </td>
                 <td>${formatGNF(prixReel)}</td>
                 <td style="color: #10b981;"><strong>-${formatGNF(subvention)}</strong></td>
                 <td style="color: ${aPayer > 0 ? '#f59e0b' : '#64748b'};">${aPayer > 0 ? formatGNF(aPayer) : '-'}</td>
