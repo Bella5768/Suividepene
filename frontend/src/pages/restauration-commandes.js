@@ -133,7 +133,7 @@ function renderCommandesTable() {
               return `
               <tr>
                 <td><strong>${cmd.utilisateur_nom || cmd.utilisateur}</strong></td>
-                <td>${cmd.lignes?.length || 0} plat(s)</td>
+                <td>${cmd.lignes?.map(l => l.plat_nom || 'Plat inconnu').join(', ') || 'Aucun plat'}</td>
                 <td>${formatGNF(prixReel)}</td>
                 <td style="color: #10b981;"><strong>-${formatGNF(subvention)}</strong></td>
                 <td style="color: ${aPayer > 0 ? '#f59e0b' : '#64748b'};">${aPayer > 0 ? formatGNF(aPayer) : '-'}</td>
